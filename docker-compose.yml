@@ -2,7 +2,7 @@ services:
   db:
     container_name: 'db'
     build:
-      context: ./db
+      context: ./docker/db
       dockerfile: Dockerfile
     tty: true
     volumes:
@@ -15,3 +15,18 @@ services:
     ports: 
       - "55432:5432"
 
+  jupyter:
+    image: jupyter/datascience-notebook:latest
+    #build:
+    #  context: ./docker/jupyter
+    #  dockerfile: Dockerfile
+    tty: true
+    user: root
+    environment:
+    - GRANT_SUDO=yes
+    - TZ=Asia/Tokyo
+    ports: 
+      - "58888:8888"
+    volumes:
+      - ./jupyter_volume/:/home/jovyan/work 
+        #command: start-notebook.sh --NotebookApp.password='sha1:YOUR_PASSWORD_HASH_VALUE'
