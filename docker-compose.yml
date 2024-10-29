@@ -1,0 +1,17 @@
+services:
+  db:
+    container_name: 'db'
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    tty: true
+    volumes:
+      - ./db_volume/:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+      - POSTGRES_DJANGO_USER=$POSTGRES_DJANGO_USER
+      - POSTGRES_DJANGO_PASSWORD=$POSTGRES_DJANGO_PASSWORD
+      - POSTGRES_DJANGO_DB_NAME=$POSTGRES_DJANGO_DB_NAME
+    ports: 
+      - "55432:5432"
+
