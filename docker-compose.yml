@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
     tty: true
     volumes:
-      - ./db_volume/:/var/lib/postgresql/data
+      - ./volumes/db_volume/:/var/lib/postgresql/data
     environment:
       - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
       - POSTGRES_DJANGO_USER=$POSTGRES_DJANGO_USER
@@ -15,18 +15,23 @@ services:
     ports: 
       - "55432:5432"
 
-  jupyter:
-    image: jupyter/datascience-notebook:latest
-    #build:
-    #  context: ./docker/jupyter
-    #  dockerfile: Dockerfile
-    tty: true
-    user: root
-    environment:
-    - GRANT_SUDO=yes
-    - TZ=Asia/Tokyo
-    ports: 
-      - "58888:8888"
+
+  pgadmin4:
+    container_name: 'pgadmin4'
+    image: dpage/pgadmin4:latest
+    ports:
+      - 58880:80
     volumes:
-      - ./jupyter_volume/:/home/jovyan/work 
-        #command: start-notebook.sh --NotebookApp.password='sha1:YOUR_PASSWORD_HASH_VALUE'
+      - ./volumes/pgadmin-data:/var/lib/pgadmin
+      - ./config/db.json:/pgadmin4/servers.json
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "sanosanosano3@gmail.com"
+      PGADMIN_DEFAULT_PASSWORD: "psqlAdmin"
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      POSTGRES_USER: $POSTGRES_DJANGO_USER
+      POSTGRES_PASSWORD: $POSTGRES_DJANGO_PASSWORD
+      POSTGRES_NAME: $POSTGRES_DJANGO_DB_NAME
+    depends_on:
+      - db
+

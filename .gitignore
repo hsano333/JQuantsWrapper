@@ -2,5 +2,8 @@ myaccount
 .env
 
 #volume
-db_volume
+volumes/**
 
+
+#cache
+**/__pycache__
