@@ -396,8 +396,9 @@ class InitDB:
 
 
 init = InitDB()
-init.make_company_and_indices_table()
+# init.make_company_and_indices_table()
+# init.init_company_table()
 # init.init_market_table()
 # init.init_indices_table()
-# init.make_table()
-# init.init_table()
+init.make_table()
+init.init_table()

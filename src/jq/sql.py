@@ -65,7 +65,7 @@ class SQL:
                     "adjustmentfactor": "adj",
                 }
             )
-            company_code = self.get_company_id(self.db, code)
+            company_code = self.get_company_id(code)
             df["company"] = company_code
             df = df.drop(["code"], axis=1)
             df["limit"] = df.shift(1)["close"].apply(get_limit)
@@ -90,10 +90,23 @@ class SQL:
         except Exception as e:
             print(f"Error insert_indice_price():{e}")
 
-    def get_company_id(self, db, company_code):
+    def insert_compay_indices(self, company_id, indices_id):
+        sql = f"insert into company_and_indices (company, indices) values({company_id}, {indices_id})"
+        self.db.post(sql)
+        pass
+
+    def get_company_indices(self, company_id):
+        sql = f"select indices from company_and_indices where company = '{company_id}'"
+        tmp = self.db.get(sql)
+        rval = []
+        for value in tmp:
+            rval.append(value[0])
+        return rval
+
+    def get_company_id(self, company_code) -> []:
         sql = f"select id from company where code = '{company_code}'"
 
-        tmp = db.get_one(sql)
+        tmp = self.db.get_one(sql)
         id = 0
         if tmp is not None:
             id = tmp[0]
