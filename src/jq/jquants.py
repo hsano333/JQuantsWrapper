@@ -3,6 +3,18 @@ import requests
 import json
 
 
+def get_code_date(code, date, date_to):
+    if not code == "" and date == "" and date_to == "":
+        args = {"code": code}
+    elif code == "" and not date == "" and date_to == "":
+        args = {"date": date}
+    elif not code == "" and not date == "" and not date_to == "":
+        args = {"code": code, "from": date, "to": date_to}
+    else:
+        raise ValueError("Invalid Argument")
+    return args
+
+
 class JQuantsWrapper:
     account = None
 
@@ -59,15 +71,8 @@ class JQuantsWrapper:
     # if date_to and date is valid, date is date_from
     def get_prices(self, code="", date="", date_to=""):
         uri = "https://api.jquants.com/v1/prices/daily_quotes"
-        if not code == "" and date == "" and date_to == "":
-            args = {"code": code}
-        elif code == "" and not date == "" and date_to == "":
-            args = {"date": date}
-        elif not code == "" and not date == "" and not date_to == "":
-            args = {"code": code, "from": date, "to": date_to}
-        else:
-            raise ValueError("Invalid Argument")
-        return self.get_info(uri, args)
+        args = get_code_date(code, date, date_to)
+        return self.get_info(uri, args)["daily_quotes"]
 
     ### 財務情報取得
     def get_fins_statements(self, code="", date=""):
@@ -112,6 +117,12 @@ class JQuantsWrapper:
         uri = "https://api.jquants.com/v1/markets/trades_spec"
         return self.get_info(uri, args)
 
+    ### 指数四本値
+    def get_indices(self, code="", date_from="", date_to=""):
+        args = get_code_date(code, date_from, date_to)
+        uri = "https://api.jquants.com/v1/indices"
+        return self.get_info(uri, args)["indices"]
+
     ### TOPIX指数四本値
     def get_indices_topix(self, date_from="", date_to=""):
         if (date_from == "") ^ (date_to == ""):
@@ -137,14 +148,7 @@ class JQuantsWrapper:
     # if date_to and date is valid, date is date_from
     def get_weekly_margin_interest(self, code="", date="", date_to=""):
         uri = "https://api.jquants.com/v1/markets/weekly_margin_interest"
-        if not code == "" and date == "" and date_to == "":
-            args = {"code": code}
-        elif code == "" and not date == "" and date_to == "":
-            args = {"date": date}
-        elif not code == "" and not date == "" and not date_to == "":
-            args = {"code": code, "from": date, "to": date_to}
-        else:
-            raise ValueError("Invalid Argument")
+        args = get_code_date(code, date, date_to)
         return self.get_info(uri, args)
 
     ### 業種別空売り比率
@@ -167,14 +171,7 @@ class JQuantsWrapper:
     # if date_to and date is valid, date is date_from
     def get_markets_breakdown(self, code="", date="", date_to=""):
         uri = "https://api.jquants.com/v1/markets/breakdown"
-        if not code == "" and date == "" and date_to == "":
-            args = {"code": code}
-        elif code == "" and not date == "" and date_to == "":
-            args = {"date": date}
-        elif not code == "" and not date == "" and not date_to == "":
-            args = {"code": code, "from": date, "to": date_to}
-        else:
-            raise ValueError("Invalid Argument")
+        args = get_code_date(code, date, date_to)
         return self.get_info(uri, args)
 
     ### 前場四本値
@@ -191,14 +188,7 @@ class JQuantsWrapper:
     # if date_to and date is valid, date is date_from
     def get_dividend(self, code="", date="", date_to=""):
         uri = "https://api.jquants.com/v1/fins/dividend"
-        if not code == "" and date == "" and date_to == "":
-            args = {"code": code}
-        elif code == "" and not date == "" and date_to == "":
-            args = {"date": date}
-        elif not code == "" and not date == "" and not date_to == "":
-            args = {"code": code, "from": date, "to": date_to}
-        else:
-            raise ValueError("Invalid Argument")
+        args = get_code_date(code, date, date_to)
         return self.get_info(uri, args)
 
     ### 財務諸表

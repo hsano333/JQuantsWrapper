@@ -126,6 +126,27 @@ class InitDB:
         tmp = pd.DataFrame(list)
         self.db.post_df(tmp, "indices")
 
+    def make_indices_price_table(self):
+        sql_seq = "CREATE SEQUENCE IF NOT EXISTS indices_price_id_seq START 1"
+        self.db.post(sql_seq)
+
+        sql = (
+            "CREATE TABLE IF NOT EXISTS public.indices_price "
+            "( "
+            "id bigint NOT NULL DEFAULT nextval('indices_price_id_seq'::regclass), "
+            "code integer NOT NULL, "
+            "date date, "
+            "open real, "
+            "high real, "
+            "low real, "
+            "close real, "
+            "CONSTRAINT indices_price_pkey PRIMARY KEY (id), "
+            "CONSTRAINT indices_price_code_date_key UNIQUE (code, date) "
+            ") "
+        )
+
+        self.db.post(sql)
+
     def make_company_table(self):
         sql_seq = "CREATE SEQUENCE IF NOT EXISTS company_id_seq START 1"
         self.db.post(sql_seq)
@@ -217,7 +238,8 @@ class InitDB:
             "adj real,"
             '"limit" integer,'
             "CONSTRAINT price_pkey PRIMARY KEY (id), "
-            "CONSTRAINT price_bk_company_fkey FOREIGN KEY (company) "
+            "CONSTRAINT price_date_company_key UNIQUE (date, company),"
+            "CONSTRAINT price_company_fkey FOREIGN KEY (company) "
             "REFERENCES public.company (id) MATCH SIMPLE "
             "ON UPDATE NO ACTION "
             "ON DELETE NO ACTION "
@@ -347,7 +369,8 @@ class InitDB:
 
 
 init = InitDB()
+init.make_indices_price_table()
 # init.init_market_table()
 # init.init_indices_table()
-init.make_table()
-init.init_table()
+# init.make_table()
+# init.init_table()

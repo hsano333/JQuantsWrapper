@@ -52,27 +52,56 @@ class SQL:
         self.jq = jq
 
     def insert_price(self, code):
-        tmp = self.jq.get_prices(code=code)["daily_quotes"]
-        df = pd.DataFrame(tmp)
-        df = df.iloc[:, :11]
-        df.columns = df.columns.str.lower()
-        df = df.rename(
-            columns={
-                "upperlimit": "upper_l",
-                "lowerlimit": "low_l",
-                "turnovervalue": "turnover",
-                "adjustmentfactor": "adj",
-            }
-        )
-        company_code = self.get_company_id(self.db, code)
-        df["company"] = company_code
-        df = df.drop(["code"], axis=1)
-        df["limit"] = df.shift(1)["close"].apply(get_limit)
+        try:
+            tmp = self.jq.get_prices(code=code)
+            df = pd.DataFrame(tmp)
+            df = df.iloc[:, :11]
+            df.columns = df.columns.str.lower()
+            df = df.rename(
+                columns={
+                    "upperlimit": "upper_l",
+                    "lowerlimit": "low_l",
+                    "turnovervalue": "turnover",
+                    "adjustmentfactor": "adj",
+                }
+            )
+            company_code = self.get_company_id(self.db, code)
+            df["company"] = company_code
+            df = df.drop(["code"], axis=1)
+            df["limit"] = df.shift(1)["close"].apply(get_limit)
 
-        self.db.post_df(df, "price")
+            self.db.post_df(df, "price")
+        except Exception as e:
+            print(f"Error insert_price():{e}")
+
+    def insert_indice_price(self, code):
+        # 未チェック 動作不明
+        try:
+            tmp = self.jq.get_indices(code=code)
+            df = pd.DataFrame(tmp)
+            print(f"{df=}")
+            df.columns = df.columns.str.lower()
+
+            company_code = self.get_indices_id(self.db, code)
+            df["code2"] = company_code
+            df = df.drop(["code"], axis=1)
+            df = df.rename(columns={"code2": "code"})
+
+            self.db.post_df(df, "indices_price")
+        except Exception as e:
+            print(f"Error insert_indice_price():{e}")
 
     def get_company_id(self, db, company_code):
         sql = f"select id from company where code = '{company_code}'"
+
+        tmp = db.get_one(sql)
+        id = 0
+        if tmp is not None:
+            id = tmp[0]
+        return id
+
+    def get_indices_id(self, db, code):
+        sql = f"select id from indices where code = '{code}'"
 
         tmp = db.get_one(sql)
         id = 0
