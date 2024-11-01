@@ -1,5 +1,4 @@
 import psycopg2
-from psycopg2.extras import DictCursor
 from psycopg2.extensions import connection
 from functools import wraps
 from sqlalchemy import create_engine
@@ -68,8 +67,6 @@ class DB:
                 result = pd.read_sql(sql, engine)
                 # 念の為
                 engine.dispose()
-
-                # conn.commit()
                 return result
             except Exception as e:
                 print(f"post_decorator error:{e}")
@@ -150,13 +147,3 @@ class DB:
     @get_df_decorator
     def get_df(self, sql):
         return sql
-
-
-"""
-test = DB()
-test_sql = "create table test2(id integer,  name varchar(10));"
-default_sql = "ALTER DATABASE django_db SET search_path TO public;"
-# sql = test.post(default_sql)
-sql = test.get('select * from public."Sector17"')
-print(sql)
-"""
