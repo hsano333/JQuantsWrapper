@@ -1,6 +1,7 @@
 """
 DBを初期化のために使用する
 一度実行したら使わない
+追加の企業が発生したら別途対応すること(idが別の値になり、他のテーブルに影響がでる))
 """
 
 from db.mydb import DB
@@ -14,6 +15,76 @@ class InitDB:
         self.jq = JQuantsWrapper()
         list = self.jq.get_list()
         self.df = pd.DataFrame(list)
+
+    def make_company_table(self):
+        sql_seq = "CREATE SEQUENCE IF NOT EXISTS company_id_seq START 1"
+        self.db.post(sql_seq)
+
+        sql = (
+            "CREATE TABLE IF NOT EXISTS public.company"
+            "("
+            "id integer NOT NULL DEFAULT nextval('company_id_seq'::regclass),"
+            'code character varying(6) COLLATE pg_catalog."default",'
+            'name text COLLATE pg_catalog."default",'
+            "sector17 integer,"
+            "sector33 integer,"
+            "scale integer,"
+            "market integer,"
+            "CONSTRAINT company_pkey PRIMARY KEY (id),"
+            "CONSTRAINT company_code_key UNIQUE (code),"
+            "CONSTRAINT company_market_fkey FOREIGN KEY (market) "
+            "REFERENCES public.market (id) MATCH SIMPLE "
+            "ON UPDATE NO ACTION "
+            "ON DELETE NO ACTION,"
+            "CONSTRAINT company_scale_fkey FOREIGN KEY (scale) "
+            "REFERENCES public.topix_scale (id) MATCH SIMPLE "
+            "ON UPDATE NO ACTION "
+            "ON DELETE NO ACTION,"
+            "CONSTRAINT company_sector17_fkey FOREIGN KEY (sector17) "
+            "REFERENCES public.sector17 (id) MATCH SIMPLE "
+            "ON UPDATE NO ACTION "
+            "ON DELETE NO ACTION,"
+            "CONSTRAINT company_sector33_fkey FOREIGN KEY (sector33) "
+            "REFERENCES public.sector33 (id) MATCH SIMPLE "
+            "ON UPDATE NO ACTION "
+            "ON DELETE NO ACTION "
+            ")"
+        )
+        self.db.post(sql)
+
+    def init_company_table(self):
+        db = self.db
+
+        secotr17_sql = "select id,code from sector17"
+        sector17 = self.db.get_df(secotr17_sql)
+        tmp = self.df.merge(
+            sector17, left_on="Sector17Code", right_on="code", how="left"
+        )
+        tmp = tmp.rename(columns={"id": "sector17"})
+        tmp = tmp.drop(["Sector17Code", "Sector17CodeName", "code"], axis=1)
+
+        secotr33_sql = "select id, code from sector33"
+        sector33 = db.get_df(secotr33_sql)
+        tmp = tmp.merge(sector33, left_on="Sector33Code", right_on="code", how="left")
+        tmp = tmp.rename(columns={"id": "sector33"})
+        tmp = tmp.drop(["Sector33Code", "Sector33CodeName", "code"], axis=1)
+
+        scale_sql = "select * from topix_scale"
+        scale = db.get_df(scale_sql)
+        tmp = tmp.merge(scale, left_on="ScaleCategory", right_on="name", how="left")
+        tmp = tmp.rename(columns={"id": "scale"})
+        tmp = tmp.drop(["ScaleCategory", "name"], axis=1)
+
+        market_sql = "select id, code from market"
+        market = db.get_df(market_sql)
+        tmp = tmp.merge(market, left_on="MarketCode", right_on="code", how="left")
+        tmp = tmp.rename(columns={"id": "market"})
+        tmp = tmp.drop(
+            ["MarketCode", "code", "CompanyNameEnglish", "MarketCodeName", "Date"],
+            axis=1,
+        )
+        tmp = tmp.rename(columns={"Code": "code", "CompanyName": "name"})
+        self.db.post_df(tmp, "company")
 
     def make_sector17_table(self):
         sql_seq = "CREATE SEQUENCE IF NOT EXISTS sector17_id_seq START 1"
@@ -114,12 +185,14 @@ class InitDB:
         self.make_topix_scale_table()
         self.make_sector17_table()
         self.make_sector33_table()
+        self.make_company_table()
 
     def init_table(self):
         self.init_market_table()
         self.init_topix_scale_table()
         self.init_sector17_table()
         self.init_sector33_table()
+        self.init_company_table()
 
 
 init = InitDB()

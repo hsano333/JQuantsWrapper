@@ -5,6 +5,7 @@ from functools import wraps
 from sqlalchemy import create_engine
 
 import os
+import pandas as pd
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -58,13 +59,29 @@ class DB:
         return wrapper
 
     @staticmethod
+    def get_df_decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                engine = DB().get_engine()
+                sql = func(*args, **kwargs)
+                result = pd.read_sql(sql, engine)
+                # 念の為
+                engine.dispose()
+
+                # conn.commit()
+                return result
+            except Exception as e:
+                print(f"post_decorator error:{e}")
+
+        return wrapper
+
+    @staticmethod
     def post_df_decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
             try:
                 engine = DB().get_engine()
-                # with DB().get_engine() as conn:
-                # with conn.cursor() as cur:
                 (df, table) = func(*args, **kwargs)
                 df.to_sql(
                     table,
@@ -109,6 +126,10 @@ class DB:
 
     @get_decorator
     def get(self, sql):
+        return sql
+
+    @get_df_decorator
+    def get_df(self, sql):
         return sql
 
 
