@@ -120,3 +120,7 @@ class SQL:
         if tmp is not None:
             id = tmp[0]
         return id
+
+    def get_table(self, table_name, where=""):
+        sql = f"select * from {table_name} {where}"
+        return self.db.get_df(sql)
