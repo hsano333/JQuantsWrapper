@@ -6,6 +6,7 @@ DBを初期化のために使用する
 
 from db.mydb import DB
 from jq.jquants import JQuantsWrapper
+from jq.sql import SQL
 import pandas as pd
 import copy
 
@@ -15,7 +16,7 @@ indices_list = [
     "0000:TOPIX",
     "0001:東証二部総合指数",
     "0028:TOPIX Core30",
-    "0029:TOPIX Large 70",
+    "0029:TOPIX Large70",
     "002A:TOPIX 100",
     "002B:TOPIX Mid400",
     "002C:TOPIX 500",
@@ -30,9 +31,9 @@ indices_list = [
     "0045:東証業種別 パルプ・紙",
     "0046:東証業種別 化学",
     "0047:東証業種別 医薬品",
-    "0048:東証業種別 石油・石炭製品​",
+    "0048:東証業種別 石油･石炭製品",
     "0049:東証業種別 ゴム製品",
-    "004A:東証業種別 ガラス・土石製品",
+    "004A:東証業種別 ガラス･土石製品",
     "004B:東証業種別 鉄鋼",
     "004C:東証業種別 非鉄金属",
     "004D:東証業種別 金属製品",
@@ -41,16 +42,16 @@ indices_list = [
     "0050:東証業種別 輸送用機器",
     "0051:東証業種別 精密機器",
     "0052:東証業種別 その他製品",
-    "0053:東証業種別 電気・ガス業",
+    "0053:東証業種別 電気･ガス業",
     "0054:東証業種別 陸運業",
     "0055:東証業種別 海運業",
     "0056:東証業種別 空運業",
-    "0057:東証業種別 倉庫・運輸関連業​",
-    "0058:東証業種別 情報・通信業",
+    "0057:東証業種別 倉庫･運輸関連業",
+    "0058:東証業種別 情報･通信業",
     "0059:東証業種別 卸売業",
     "005A:東証業種別 小売業",
     "005B:東証業種別 銀行業",
-    "005C:東証業種別 証券・商品先物取引業",
+    "005C:東証業種別 証券･商品先物取引業",
     "005D:東証業種別 保険業",
     "005E:東証業種別 その他金融業",
     "005F:東証業種別 不動産業",
@@ -63,11 +64,11 @@ indices_list = [
     "0083:TOPIX-17 素材・化学",
     "0084:TOPIX-17 医薬品",
     "0085:TOPIX-17 自動車・輸送機",
-    "0086:TOPIX-17 鉄鋼・非鉄​",
+    "0086:TOPIX-17 鉄鋼・非鉄",
     "0087:TOPIX-17 機械",
     "0088:TOPIX-17 電機・精密",
     "0089:TOPIX-17 情報通信・サービスその他",
-    "008A:TOPIX-17 電力・ガス",
+    "008A:TOPIX-17 電気・ガス",
     "008B:TOPIX-17 運輸・物流",
     "008C:TOPIX-17 商社・卸売",
     "008D:TOPIX-17 小売",
@@ -97,6 +98,7 @@ class InitDB:
         self.jq = JQuantsWrapper()
         list = self.jq.get_list()
         self.df = pd.DataFrame(list)
+        self.sql = SQL(self.jq, self.db)
 
     def make_indices_table(self):
         sql_seq = "CREATE SEQUENCE IF NOT EXISTS indices_id_seq START 1"
@@ -217,6 +219,125 @@ class InitDB:
         tmp = tmp.rename(columns={"Code": "code", "CompanyName": "name"})
         self.db.post_df(tmp, "company")
 
+    def make_company_and_indices_table(self):
+        sql_seq = "CREATE SEQUENCE IF NOT EXISTS company_and_indices_id_seq START 1"
+        self.db.post(sql_seq)
+
+        sql = (
+            "CREATE TABLE IF NOT EXISTS public.company_and_indices "
+            "( "
+            "id integer NOT NULL DEFAULT nextval('company_and_indices_id_seq'::regclass), "
+            "company integer NOT NULL, "
+            "indices integer NOT NULL, "
+            "CONSTRAINT company_and_indices_pkey PRIMARY KEY (id), "
+            "CONSTRAINT company_and_indices_company_indices_key UNIQUE (company, indices), "
+            "CONSTRAINT company_and_indices_company_fkey FOREIGN KEY (company) "
+            "REFERENCES public.company (id) MATCH SIMPLE "
+            "ON UPDATE NO ACTION "
+            "ON DELETE NO ACTION "
+            "NOT VALID, "
+            "CONSTRAINT company_and_indices_indices_fkey FOREIGN KEY (indices) "
+            "REFERENCES public.indices (id) MATCH SIMPLE "
+            "ON UPDATE NO ACTION "
+            "ON DELETE NO ACTION "
+            "NOT VALID "
+            ") "
+        )
+        self.db.post(sql)
+
+    def init_company_and_indices_table(self):
+        sql = self.sql
+        company_df = sql.get_table("company", "")
+        indices_df = sql.get_table("indices", "")
+        sector17_df = sql.get_table("sector17", "")
+        sector33_df = sql.get_table("sector33", "")
+        topix_scale_df = sql.get_table("topix_scale", "")
+        topix_scale_df = topix_scale_df.rename(
+            columns={"id": "id_scale", "name": "name_scale"}
+        )
+        topix_scale_df.loc[
+            topix_scale_df["name_scale"] == "TOPIX Small 1", "name_scale"
+        ] = "TOPIX Small"
+        topix_scale_df.loc[
+            topix_scale_df["name_scale"] == "TOPIX Small 2", "name_scale"
+        ] = "TOPIX Small"
+        topix_scale_df.loc[topix_scale_df["name_scale"] == "-", "name_scale"] = "TOPIX"
+
+        indices_df = indices_df.rename(
+            columns={"id": "id_indices", "code": "code_indices", "name": "name_indices"}
+        )
+        sector17_df = sector17_df.rename(
+            columns={
+                "id": "id_sector17",
+                "code": "code_sector17",
+                "name": "name_sector17",
+            }
+        )
+        sector17_df.loc[
+            sector17_df["name_sector17"] == "TOPIX-17 その他", "name_sector17"
+        ] = "TOPIX"
+        sector33_df = sector33_df.rename(
+            columns={
+                "id": "id_sector33",
+                "code": "code_sector33",
+                "name": "name_sector33",
+            }
+        )
+        sector33_df.loc[
+            sector33_df["name_sector33"] == "東証業種別 その他", "name_sector33"
+        ] = "TOPIX"
+
+        topix_scale_df = topix_scale_df.merge(
+            indices_df, left_on="name_scale", right_on="name_indices", how="left"
+        )
+        topix_scale_df = topix_scale_df.iloc[:, :3].rename(
+            columns={"id_indices": "id_indices1"}
+        )
+        sector17_df = sector17_df.merge(
+            indices_df, left_on="name_sector17", right_on="name_indices", how="left"
+        )
+        sector17_df = sector17_df.iloc[:, :4].rename(
+            columns={"id_indices": "id_indices2"}
+        )
+        sector33_df = sector33_df.merge(
+            indices_df, left_on="name_sector33", right_on="name_indices", how="left"
+        )
+        sector33_df = sector33_df.iloc[:, :4].rename(
+            columns={"id_indices": "id_indices3"}
+        )
+
+        company_df = company_df.merge(
+            topix_scale_df, left_on="scale", right_on="id_scale", how="left"
+        )
+        company_df = company_df.merge(
+            sector17_df, left_on="sector17", right_on="id_sector17", how="left"
+        )
+        company_df = company_df.merge(
+            sector33_df, left_on="sector33", right_on="id_sector33", how="left"
+        )
+
+        cols1 = ["id", "id_indices1"]
+        cols2 = ["id", "id_indices2"]
+        cols3 = ["id", "id_indices3"]
+        tmp1 = company_df[cols1]
+        tmp2 = company_df[cols2]
+        tmp3 = company_df[cols3]
+
+        tmp1 = tmp1.rename(columns={"id": "company", "id_indices1": "indices"})
+        tmp2 = tmp2.rename(columns={"id": "company", "id_indices2": "indices"})
+        tmp3 = tmp3.rename(columns={"id": "company", "id_indices3": "indices"})
+
+        tmp_id = pd.concat(
+            [tmp1["company"], tmp2["company"], tmp3["company"]], axis=0
+        ).reset_index(drop=True)
+        tmp_indices = pd.concat(
+            [tmp1["indices"], tmp2["indices"], tmp3["indices"]], axis=0
+        ).reset_index(drop=True)
+        tmp = pd.DataFrame({"company": tmp_id, "indices": tmp_indices})
+        tmp = tmp.drop_duplicates(subset=["company", "indices"])
+
+        self.db.post_df(tmp, "company_and_indices")
+
     def make_price_table(self):
         sql_seq = "CREATE SEQUENCE IF NOT EXISTS price_id_seq START 1"
         self.db.post(sql_seq)
@@ -273,6 +394,7 @@ class InitDB:
         tmp = pd.concat([sector17_data, code_int], axis=1)
         tmp.columns = ["code", "name", "code_int"]
         tmp = tmp.sort_values("code_int")
+        tmp["name"] = "TOPIX-17 " + tmp["name"]
         sector17_data = tmp[["code", "name"]]
 
         self.db.post_df(sector17_data, "sector17")
@@ -301,6 +423,7 @@ class InitDB:
         tmp = pd.concat([sector33_data, code_int], axis=1)
         tmp.columns = ["code", "name", "code_int"]
         tmp = tmp.sort_values("code_int")
+        tmp["name"] = "東証業種別 " + tmp["name"]
         sector33_data = tmp[["code", "name"]]
 
         self.db.post_df(sector33_data, "sector33")
@@ -358,6 +481,8 @@ class InitDB:
         self.make_sector33_table()
         self.make_company_table()
         self.make_price_table()
+        self.make_company_and_indices_table()
+        self.make_indices_price_table()
 
     def init_table(self):
         self.init_market_table()
@@ -366,11 +491,10 @@ class InitDB:
         self.init_sector17_table()
         self.init_sector33_table()
         self.init_company_table()
+        self.init_company_and_indices_table()
 
 
 init = InitDB()
-init.make_indices_price_table()
-# init.init_market_table()
-# init.init_indices_table()
+init.init_company_and_indices_table()
 # init.make_table()
 # init.init_table()
