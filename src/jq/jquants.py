@@ -53,7 +53,7 @@ class JQuantsWrapper:
     def get_list(self):
         uri = "https://api.jquants.com/v1/listed/info"
         args = {}
-        return self.get_info(uri, args)
+        return self.get_info(uri, args)["info"]
 
     ### 株価四本値取得
     # if date_to and date is valid, date is date_from
