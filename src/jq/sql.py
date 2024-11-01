@@ -79,7 +79,6 @@ class SQL:
         try:
             tmp = self.jq.get_indices(code=code)
             df = pd.DataFrame(tmp)
-            print(f"{df=}")
             df.columns = df.columns.str.lower()
 
             company_code = self.get_indices_id(self.db, code)

@@ -217,6 +217,32 @@ class InitDB:
         tmp = tmp.rename(columns={"Code": "code", "CompanyName": "name"})
         self.db.post_df(tmp, "company")
 
+    def make_company_and_indices_table(self):
+        sql_seq = "CREATE SEQUENCE IF NOT EXISTS company_and_indices_id_seq START 1"
+        self.db.post(sql_seq)
+
+        sql = (
+            "CREATE TABLE IF NOT EXISTS public.company_and_indices "
+            "( "
+            "id integer NOT NULL DEFAULT nextval('company_and_indices_id_seq'::regclass), "
+            "company integer NOT NULL, "
+            "indices integer NOT NULL, "
+            "CONSTRAINT company_and_indices_pkey PRIMARY KEY (id), "
+            "CONSTRAINT company_and_indices_company_indices_key UNIQUE (company, indices), "
+            "CONSTRAINT company_and_indices_company_fkey FOREIGN KEY (company) "
+            "REFERENCES public.company (id) MATCH SIMPLE "
+            "ON UPDATE NO ACTION "
+            "ON DELETE NO ACTION "
+            "NOT VALID, "
+            "CONSTRAINT company_and_indices_indices_fkey FOREIGN KEY (indices) "
+            "REFERENCES public.indices (id) MATCH SIMPLE "
+            "ON UPDATE NO ACTION "
+            "ON DELETE NO ACTION "
+            "NOT VALID "
+            ") "
+        )
+        self.db.post(sql)
+
     def make_price_table(self):
         sql_seq = "CREATE SEQUENCE IF NOT EXISTS price_id_seq START 1"
         self.db.post(sql_seq)
@@ -358,6 +384,7 @@ class InitDB:
         self.make_sector33_table()
         self.make_company_table()
         self.make_price_table()
+        self.make_company_and_indices_table()
 
     def init_table(self):
         self.init_market_table()
@@ -369,7 +396,7 @@ class InitDB:
 
 
 init = InitDB()
-init.make_indices_price_table()
+init.make_company_and_indices_table()
 # init.init_market_table()
 # init.init_indices_table()
 # init.make_table()
