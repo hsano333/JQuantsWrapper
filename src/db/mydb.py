@@ -116,6 +116,21 @@ class DB:
 
         return wrapper
 
+    @staticmethod
+    def get_one_decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                with DB().get_connection() as conn:
+                    with conn.cursor() as cur:
+                        sql = func(*args, **kwargs)
+                        cur.execute(sql)
+                        return cur.fetchone()
+            except Exception as e:
+                print(f"post_decorator error:{e}")
+
+        return wrapper
+
     @post_decorator
     def post(self, sql):
         return sql
@@ -126,6 +141,10 @@ class DB:
 
     @get_decorator
     def get(self, sql):
+        return sql
+
+    @get_one_decorator
+    def get_one(self, sql):
         return sql
 
     @get_df_decorator

@@ -8,6 +8,20 @@ from db.mydb import DB
 from jq.jquants import JQuantsWrapper
 import pandas as pd
 
+"""
+{
+    '100': '30',  '200': '50',  '500': '80',  '700': '100',  '1000': '150', 
+    '1500': '300',  '2000': '400',  '3000': '500',  '5000': '700', 
+    '7000': '1000',  '10000': '1500',  '15000': '3000',  '20000': '4000', 
+    '30000': '5000' , '50000': '7000',  '70000': '10000',  '100000': '15000', 
+    '150000': '30000',  '200000': '40000',  '300000': '50000',  '500000': '70000', 
+    '700000': '100000',  '1000000': '150000',  '1500000': '300000', 
+    '2000000': '400000',  '3000000': '500000',  '5000000': '700000', 
+    '50000000': '10000000'
+}
+
+"""
+
 
 class InitDB:
     def __init__(self):
@@ -85,6 +99,36 @@ class InitDB:
         )
         tmp = tmp.rename(columns={"Code": "code", "CompanyName": "name"})
         self.db.post_df(tmp, "company")
+
+    def make_price_table(self):
+        sql_seq = "CREATE SEQUENCE IF NOT EXISTS price_id_seq START 1"
+        self.db.post(sql_seq)
+
+        sql = (
+            "CREATE TABLE IF NOT EXISTS public.price"
+            "("
+            "id bigint NOT NULL DEFAULT nextval('price_id_seq'::regclass),"
+            "date date,"
+            "company integer,"
+            "open real,"
+            "high real,"
+            "low real,"
+            "close real,"
+            "upper_l boolean,"
+            "low_l boolean,"
+            "volume bigint,"
+            "turnover bigint,"
+            "adj real,"
+            '"limit" integer,'
+            "CONSTRAINT price_pkey PRIMARY KEY (id), "
+            "CONSTRAINT price_bk_company_fkey FOREIGN KEY (company) "
+            "REFERENCES public.company (id) MATCH SIMPLE "
+            "ON UPDATE NO ACTION "
+            "ON DELETE NO ACTION "
+            ")"
+        )
+        self.db.post(sql)
+        pass
 
     def make_sector17_table(self):
         sql_seq = "CREATE SEQUENCE IF NOT EXISTS sector17_id_seq START 1"
@@ -186,6 +230,7 @@ class InitDB:
         self.make_sector17_table()
         self.make_sector33_table()
         self.make_company_table()
+        self.make_price_table()
 
     def init_table(self):
         self.init_market_table()
@@ -196,5 +241,5 @@ class InitDB:
 
 
 init = InitDB()
-# init.make_table()
+init.make_price_table()
 # init.init_table()

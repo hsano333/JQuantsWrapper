@@ -29,16 +29,25 @@ class JQuantsWrapper:
         uri.removesuffix("-&")
         uri.removesuffix("-?")
         req = requests.get(uri, headers=self.headers)
-        info = req.json()["info"]
+
+        tmp_data = {}
+        for key, value in req.json().items():
+            if key != "pagination_key":
+                tmp_data[key] = value
+
+        # info = req.json()["info"]
         while "pagination_key" in req.json():
             key = req.json()["pagination_key"]
             req = requests.get(
                 uri + f"?query=param&pagination_key={key}",
                 headers=self.headers,
             )
-            info += req.json()["info"]
+            # info += req.json()["info"]
+            for key, value in req.json().items():
+                if key != "pagination_key":
+                    tmp_data[key] = value
 
-        return info
+        return tmp_data
 
     ##　上場銘柄一覧取得
     def get_list(self):
