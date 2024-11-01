@@ -7,20 +7,88 @@ DBを初期化のために使用する
 from db.mydb import DB
 from jq.jquants import JQuantsWrapper
 import pandas as pd
+import copy
 
-"""
-{
-    '100': '30',  '200': '50',  '500': '80',  '700': '100',  '1000': '150', 
-    '1500': '300',  '2000': '400',  '3000': '500',  '5000': '700', 
-    '7000': '1000',  '10000': '1500',  '15000': '3000',  '20000': '4000', 
-    '30000': '5000' , '50000': '7000',  '70000': '10000',  '100000': '15000', 
-    '150000': '30000',  '200000': '40000',  '300000': '50000',  '500000': '70000', 
-    '700000': '100000',  '1000000': '150000',  '1500000': '300000', 
-    '2000000': '400000',  '3000000': '500000',  '5000000': '700000', 
-    '50000000': '10000000'
-}
-
-"""
+# 暫定　本来は全部のデータを取得して重複削除してやるべき
+# 現在のプランだとまだそのデータが取れないので仕方なく
+indices_list = [
+    "0000:TOPIX",
+    "0001:東証二部総合指数",
+    "0028:TOPIX Core30",
+    "0029:TOPIX Large 70",
+    "002A:TOPIX 100",
+    "002B:TOPIX Mid400",
+    "002C:TOPIX 500",
+    "002D:TOPIX Small",
+    "002E:TOPIX 1000",
+    "002F:TOPIX Small500",
+    "0040:東証業種別 水産・農林業",
+    "0041:東証業種別 鉱業",
+    "0042:東証業種別 建設業",
+    "0043:東証業種別 食料品",
+    "0044:東証業種別 繊維製品",
+    "0045:東証業種別 パルプ・紙",
+    "0046:東証業種別 化学",
+    "0047:東証業種別 医薬品",
+    "0048:東証業種別 石油・石炭製品​",
+    "0049:東証業種別 ゴム製品",
+    "004A:東証業種別 ガラス・土石製品",
+    "004B:東証業種別 鉄鋼",
+    "004C:東証業種別 非鉄金属",
+    "004D:東証業種別 金属製品",
+    "004E:東証業種別 機械",
+    "004F:東証業種別 電気機器",
+    "0050:東証業種別 輸送用機器",
+    "0051:東証業種別 精密機器",
+    "0052:東証業種別 その他製品",
+    "0053:東証業種別 電気・ガス業",
+    "0054:東証業種別 陸運業",
+    "0055:東証業種別 海運業",
+    "0056:東証業種別 空運業",
+    "0057:東証業種別 倉庫・運輸関連業​",
+    "0058:東証業種別 情報・通信業",
+    "0059:東証業種別 卸売業",
+    "005A:東証業種別 小売業",
+    "005B:東証業種別 銀行業",
+    "005C:東証業種別 証券・商品先物取引業",
+    "005D:東証業種別 保険業",
+    "005E:東証業種別 その他金融業",
+    "005F:東証業種別 不動産業",
+    "0060:東証業種別 サービス業",
+    "0070:東証グロース市場250指数",
+    "0075:REIT",
+    "0080:TOPIX-17 食品",
+    "0081:TOPIX-17 エネルギー資源",
+    "0082:TOPIX-17 建設・資材",
+    "0083:TOPIX-17 素材・化学",
+    "0084:TOPIX-17 医薬品",
+    "0085:TOPIX-17 自動車・輸送機",
+    "0086:TOPIX-17 鉄鋼・非鉄​",
+    "0087:TOPIX-17 機械",
+    "0088:TOPIX-17 電機・精密",
+    "0089:TOPIX-17 情報通信・サービスその他",
+    "008A:TOPIX-17 電力・ガス",
+    "008B:TOPIX-17 運輸・物流",
+    "008C:TOPIX-17 商社・卸売",
+    "008D:TOPIX-17 小売",
+    "008E:TOPIX-17 銀行",
+    "008F:TOPIX-17 金融（除く銀行）",
+    "0090:TOPIX-17 不動産",
+    "0091:JASDAQ INDEX",
+    "0500:東証プライム市場指数",
+    "0501:東証スタンダード市場指数",
+    "0502:東証グロース市場指数",
+    "0503:JPXプライム150指数",
+    "8100:TOPIX バリュー",
+    "812C:TOPIX500 バリュー",
+    "812D:TOPIXSmall バリュー",
+    "8200:TOPIX グロース",
+    "822C:TOPIX500 グロース",
+    "822D:TOPIXSmall グロース",
+    "8501:東証REIT オフィス指数",
+    "8502:東証REIT 住宅指数",
+    "8503:東証REIT 商業・物流等指数",
+]
 
 
 class InitDB:
@@ -29,6 +97,55 @@ class InitDB:
         self.jq = JQuantsWrapper()
         list = self.jq.get_list()
         self.df = pd.DataFrame(list)
+
+    def make_indices_table(self):
+        sql_seq = "CREATE SEQUENCE IF NOT EXISTS indices_id_seq START 1"
+        self.db.post(sql_seq)
+
+        sql = (
+            'CREATE TABLE IF NOT EXISTS public."indices" ('
+            "id integer NOT NULL DEFAULT nextval('indices_id_seq'::regclass),"
+            'code character varying(4) COLLATE pg_catalog."default" NOT NULL,'
+            'name text COLLATE pg_catalog."default",'
+            'CONSTRAINT "indices_pkey" PRIMARY KEY (id),'
+            "CONSTRAINT indices_code_key UNIQUE (code)"
+            ")"
+        )
+        self.db.post(sql)
+
+    def init_indices_table(self):
+        dict = {}
+        list = []
+        for indices in indices_list:
+            split = indices.split(":")
+            code = split[0]
+            name = split[1]
+            dict["code"] = code
+            dict["name"] = name
+            list.append(copy.copy(dict))
+        tmp = pd.DataFrame(list)
+        self.db.post_df(tmp, "indices")
+
+    def make_indices_price_table(self):
+        sql_seq = "CREATE SEQUENCE IF NOT EXISTS indices_price_id_seq START 1"
+        self.db.post(sql_seq)
+
+        sql = (
+            "CREATE TABLE IF NOT EXISTS public.indices_price "
+            "( "
+            "id bigint NOT NULL DEFAULT nextval('indices_price_id_seq'::regclass), "
+            "code integer NOT NULL, "
+            "date date, "
+            "open real, "
+            "high real, "
+            "low real, "
+            "close real, "
+            "CONSTRAINT indices_price_pkey PRIMARY KEY (id), "
+            "CONSTRAINT indices_price_code_date_key UNIQUE (code, date) "
+            ") "
+        )
+
+        self.db.post(sql)
 
     def make_company_table(self):
         sql_seq = "CREATE SEQUENCE IF NOT EXISTS company_id_seq START 1"
@@ -121,7 +238,8 @@ class InitDB:
             "adj real,"
             '"limit" integer,'
             "CONSTRAINT price_pkey PRIMARY KEY (id), "
-            "CONSTRAINT price_bk_company_fkey FOREIGN KEY (company) "
+            "CONSTRAINT price_date_company_key UNIQUE (date, company),"
+            "CONSTRAINT price_company_fkey FOREIGN KEY (company) "
             "REFERENCES public.company (id) MATCH SIMPLE "
             "ON UPDATE NO ACTION "
             "ON DELETE NO ACTION "
@@ -139,7 +257,9 @@ class InitDB:
             "id integer NOT NULL DEFAULT nextval('sector17_id_seq'::regclass),"
             'code character varying(2) COLLATE pg_catalog."default" NOT NULL,'
             'name text COLLATE pg_catalog."default",'
-            'CONSTRAINT "sector17_pkey" PRIMARY KEY (id))'
+            'CONSTRAINT "sector17_pkey" PRIMARY KEY (id), '
+            "CONSTRAINT sector17_code_key UNIQUE (code)"
+            ")"
         )
         self.db.post(sql)
 
@@ -166,7 +286,9 @@ class InitDB:
             "id integer NOT NULL DEFAULT nextval('sector33_id_seq'::regclass),"
             'code character varying(4) COLLATE pg_catalog."default" NOT NULL,'
             'name text COLLATE pg_catalog."default",'
-            'CONSTRAINT "sector33_pkey" PRIMARY KEY (id))'
+            'CONSTRAINT "sector33_pkey" PRIMARY KEY (id), '
+            "CONSTRAINT sector33_code_key UNIQUE (code)"
+            ")"
         )
         self.db.post(sql)
 
@@ -191,7 +313,9 @@ class InitDB:
             'CREATE TABLE IF NOT EXISTS public."topix_scale" ('
             "id integer NOT NULL DEFAULT nextval('topix_scale_id_seq'::regclass),"
             'name text COLLATE pg_catalog."default",'
-            'CONSTRAINT "topix_scale_pkey" PRIMARY KEY (id))'
+            'CONSTRAINT "topix_scale_pkey" PRIMARY KEY (id), '
+            "CONSTRAINT topix_scale_name_key UNIQUE (name)"
+            ")"
         )
         self.db.post(sql)
 
@@ -212,7 +336,9 @@ class InitDB:
             "id integer NOT NULL DEFAULT nextval('market_id_seq'::regclass),"
             'code character varying(4) COLLATE pg_catalog."default" NOT NULL,'
             'name text COLLATE pg_catalog."default",'
-            'CONSTRAINT "market_pkey" PRIMARY KEY (id))'
+            'CONSTRAINT "market_pkey" PRIMARY KEY (id), '
+            "CONSTRAINT market_code_key UNIQUE (code)"
+            ")"
         )
         self.db.post(sql)
 
@@ -226,6 +352,7 @@ class InitDB:
 
     def make_table(self):
         self.make_market_table()
+        self.make_indices_table()
         self.make_topix_scale_table()
         self.make_sector17_table()
         self.make_sector33_table()
@@ -234,6 +361,7 @@ class InitDB:
 
     def init_table(self):
         self.init_market_table()
+        self.init_indices_table()
         self.init_topix_scale_table()
         self.init_sector17_table()
         self.init_sector33_table()
@@ -241,5 +369,8 @@ class InitDB:
 
 
 init = InitDB()
-init.make_price_table()
+init.make_indices_price_table()
+# init.init_market_table()
+# init.init_indices_table()
+# init.make_table()
 # init.init_table()
