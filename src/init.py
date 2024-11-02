@@ -494,24 +494,38 @@ class InitDB:
         self.db.post(sql)
 
     def init_sid_table(self):
-        date_list = [datetime(1900, 1, 1) + timedelta(days=i) for i in range(73000)]
-
+        year = 1900
+        date_list = [datetime(year, 1, 2) + timedelta(days=i) for i in range(73000)]
         sid_list = []
+
+        # 初日だけ直接いれないと計算がおかしくなる
+        dict = {}
+        dict["date"] = datetime(year, 1, 1)
+        dict["sid"] = 1
+        dict["year"] = 1900
+        dict["week"] = 1
+        dict["weekday"] = 0
+
+        sid_list.append(dict.copy())
+
         week = 1
-        sid = 1
+        sid = 2
         for date in date_list:
-            if date.month == 1 and date.day == 1:
-                week = 1
-            if date.weekday() == 6:
-                week = week + 1
+            if date.weekday() == 0:
                 sid = sid + 1
-            elif date.weekday() != 5:
+                if (date.month == 1) and (date.day <= 7):
+                    week = 1
+                    year = year + 1
+                else:
+                    week = week + 1
+            if date.weekday() < 5:
                 dict = {}
                 dict["date"] = date
                 dict["sid"] = sid
-                dict["year"] = date.year
+                dict["year"] = year
                 dict["week"] = week
                 dict["weekday"] = date.weekday()
+
                 sid_list.append(dict.copy())
 
         df = pd.DataFrame(sid_list)
@@ -542,7 +556,7 @@ class InitDB:
 
 init = InitDB()
 init.init_sid_table()
-#init.make_sid_table()
+# init.make_sid_table()
 # init.init_company_and_indices_table()
 # init.make_table()
 # init.init_table()
