@@ -9,6 +9,7 @@ from jq.jquants import JQuantsWrapper
 from jq.sql import SQL
 import pandas as pd
 import copy
+from datetime import datetime, timedelta
 
 # 暫定　本来は全部のデータを取得して重複削除してやるべき
 # 現在のプランだとまだそのデータが取れないので仕方なく
@@ -473,6 +474,49 @@ class InitDB:
 
         self.db.post_df(market_data, "market")
 
+    def make_sid_table(self):
+        sql_seq = "CREATE SEQUENCE IF NOT EXISTS sid_id_seq START 1"
+        self.db.post(sql_seq)
+        sql = (
+            "CREATE TABLE IF NOT EXISTS public.sid "
+            "( "
+            "id integer NOT NULL DEFAULT nextval('sid_id_seq'::regclass), "
+            "sid integer NOT NULL, "
+            "date date NOT NULL, "
+            "year integer NOT NULL, "
+            "week integer NOT NULL, "
+            "weekday integer NOT NULL, "
+            "CONSTRAINT sid_pkey PRIMARY KEY (id), "
+            "CONSTRAINT sid_date_key UNIQUE (date), "
+            "CONSTRAINT sid_year_week_weekday_key UNIQUE (year, week, weekday) "
+            ") "
+        )
+        self.db.post(sql)
+
+    def init_sid_table(self):
+        date_list = [datetime(1900, 1, 1) + timedelta(days=i) for i in range(73000)]
+
+        sid_list = []
+        week = 1
+        sid = 1
+        for date in date_list:
+            if date.month == 1 and date.day == 1:
+                week = 1
+            if date.weekday() == 6:
+                week = week + 1
+                sid = sid + 1
+            elif date.weekday() != 5:
+                dict = {}
+                dict["date"] = date
+                dict["sid"] = sid
+                dict["year"] = date.year
+                dict["week"] = week
+                dict["weekday"] = date.weekday()
+                sid_list.append(dict.copy())
+
+        df = pd.DataFrame(sid_list)
+        self.db.post_df(df, "sid")
+
     def make_table(self):
         self.make_market_table()
         self.make_indices_table()
@@ -483,6 +527,7 @@ class InitDB:
         self.make_price_table()
         self.make_company_and_indices_table()
         self.make_indices_price_table()
+        self.make_sid_table()
 
     def init_table(self):
         self.init_market_table()
@@ -492,9 +537,12 @@ class InitDB:
         self.init_sector33_table()
         self.init_company_table()
         self.init_company_and_indices_table()
+        self.init_sid_table()
 
 
 init = InitDB()
-init.init_company_and_indices_table()
+init.init_sid_table()
+#init.make_sid_table()
+# init.init_company_and_indices_table()
 # init.make_table()
 # init.init_table()
