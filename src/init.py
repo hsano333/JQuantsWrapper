@@ -486,6 +486,7 @@ class InitDB:
             "year integer NOT NULL, "
             "week integer NOT NULL, "
             "weekday integer NOT NULL, "
+            "valid_count integer DEFAULT 5, "
             "CONSTRAINT sid_pkey PRIMARY KEY (id), "
             "CONSTRAINT sid_date_key UNIQUE (date), "
             "CONSTRAINT sid_year_week_weekday_key UNIQUE (year, week, weekday) "
@@ -510,15 +511,20 @@ class InitDB:
 
         week = 1
         sid = 2
+        year_flag = False
         for date in date_list:
-            if date.weekday() == 0:
-                sid = sid + 1
-                if (date.month == 1) and (date.day <= 7):
+            if date.weekday() < 5:
+                if (date.month == 1) and date.day >= 4 and year_flag:
                     week = 1
                     year = year + 1
-                else:
+                    sid = sid + 1
+                    year_flag = False
+                elif date.weekday() == 0:
+                    sid = sid + 1
                     week = week + 1
-            if date.weekday() < 5:
+                if date.month == 12:
+                    year_flag = True
+
                 dict = {}
                 dict["date"] = date
                 dict["sid"] = sid

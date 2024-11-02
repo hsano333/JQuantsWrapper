@@ -89,7 +89,7 @@ class JQuantsWrapper:
     ### 決算発表予定日取得
     def get_fins_announcement(self):
         uri = "https://api.jquants.com/v1/fins/announcement"
-        return self.get_info(uri)
+        return self.get_info(uri)["announcement"]
 
     ### 取引カレンダー取得
     def get_trading_calendar(self, holidaydivision="", date_from="", date_to=""):
@@ -102,10 +102,10 @@ class JQuantsWrapper:
             args["from"] = date_from
             args["to"] = date_to
         uri = "https://api.jquants.com/v1/markets/trading_calendar"
-        return self.get_info(uri, args)
+        return self.get_info(uri, args)["trading_calendar"]
 
     ### 投資部門情報
-    def get_markets_trades_spce(self, section="", date_from="", date_to=""):
+    def get_markets_trades_spec(self, section="", date_from="", date_to=""):
         if (date_from == "") ^ (date_to == ""):
             raise ValueError("Invalid Argument")
         args = {}
@@ -115,7 +115,7 @@ class JQuantsWrapper:
             args["from"] = date_from
             args["to"] = date_to
         uri = "https://api.jquants.com/v1/markets/trades_spec"
-        return self.get_info(uri, args)
+        return self.get_info(uri, args)["trades_spec"]
 
     ### 指数四本値
     def get_indices(self, code="", date_from="", date_to=""):
@@ -132,7 +132,7 @@ class JQuantsWrapper:
             args["from"] = date_from
             args["to"] = date_to
         uri = "https://api.jquants.com/v1/indices/topix"
-        return self.get_info(uri, args)
+        return self.get_info(uri, args)["topix"]
 
     ### オプション四本値
     def get_index_option(self, date=""):
@@ -142,7 +142,7 @@ class JQuantsWrapper:
         # if not date_from == "":
         # args["date"] = date
         uri = "https://api.jquants.com/v1/option/index_option"
-        return self.get_info(uri, args)
+        return self.get_info(uri, args)["options"]
 
     ### 信用取引週末残高
     # if date_to and date is valid, date is date_from
