@@ -7,9 +7,10 @@ DBを初期化のために使用する
 from db.mydb import DB
 from jq.jquants import JQuantsWrapper
 from jq.sql import SQL
+from datetime import datetime, timedelta
 import pandas as pd
 import copy
-from datetime import datetime, timedelta
+import yfinance as yf
 
 # 暫定　本来は全部のデータを取得して重複削除してやるべき
 # 現在のプランだとまだそのデータが取れないので仕方なく
@@ -474,27 +475,44 @@ class InitDB:
 
         self.db.post_df(market_data, "market")
 
-    def make_sid_table(self):
-        sql_seq = "CREATE SEQUENCE IF NOT EXISTS sid_id_seq START 1"
+    def make_jq_sid_table(self):
+        sql_seq = "CREATE SEQUENCE IF NOT EXISTS jq_sid_sid_seq START 1"
         self.db.post(sql_seq)
         sql = (
-            "CREATE TABLE IF NOT EXISTS public.sid "
+            "CREATE TABLE IF NOT EXISTS public.jq_sid "
             "( "
-            "id integer NOT NULL DEFAULT nextval('sid_id_seq'::regclass), "
-            "sid integer NOT NULL, "
-            "date date NOT NULL, "
-            "year integer NOT NULL, "
-            "week integer NOT NULL, "
-            "weekday integer NOT NULL, "
-            "valid_count integer DEFAULT 5, "
-            "CONSTRAINT sid_pkey PRIMARY KEY (id), "
-            "CONSTRAINT sid_date_key UNIQUE (date), "
-            "CONSTRAINT sid_year_week_weekday_key UNIQUE (year, week, weekday) "
+            "sid integer NOT NULL DEFAULT nextval('jq_sid_sid_seq'::regclass), "
+            "year integer, "
+            "week integer, "
+            "valid_cnt integer DEFAULT 0,"
+            "CONSTRAINT jq_sid_pkey PRIMARY KEY (sid), "
+            "CONSTRAINT jq_sid_year_week_key UNIQUE (year, week) "
             ") "
         )
         self.db.post(sql)
 
-    def init_sid_table(self):
+    def make_date_table(self):
+        sql_seq = "CREATE SEQUENCE IF NOT EXISTS date_id_seq START 1"
+        self.db.post(sql_seq)
+        sql = (
+            "CREATE TABLE IF NOT EXISTS public.date "
+            "( "
+            "id integer NOT NULL DEFAULT nextval('date_id_seq'::regclass), "
+            "date date NOT NULL, "
+            "sid integer NOT NULL, "
+            "weekday integer NOT NULL, "
+            "CONSTRAINT date_pkey PRIMARY KEY (id), "
+            "CONSTRAINT date_sid_weekday_key UNIQUE (sid, weekday),  "
+            "CONSTRAINT date_sid_fkey FOREIGN KEY (sid) "
+            "REFERENCES public.jq_sid (sid) MATCH SIMPLE "
+            "ON UPDATE NO ACTION "
+            "ON DELETE NO ACTION "
+            "NOT VALID "
+            ") "
+        )
+        self.db.post(sql)
+
+    def init_sid_date_table(self):
         year = 1900
         date_list = [datetime(year, 1, 2) + timedelta(days=i) for i in range(73000)]
         sid_list = []
@@ -533,9 +551,30 @@ class InitDB:
                 dict["weekday"] = date.weekday()
 
                 sid_list.append(dict.copy())
-
         df = pd.DataFrame(sid_list)
-        self.db.post_df(df, "sid")
+
+        toyota = yf.Ticker("7203.T")
+        toyota_df = pd.DataFrame(toyota.history(period="max"))
+        toyota_df = toyota_df.reset_index()
+        toyota_df["Date"] = pd.to_datetime(toyota_df["Date"]).dt.date
+        df["date"] = pd.to_datetime(df["date"]).dt.date
+
+        tmp = toyota_df.merge(df, left_on="Date", right_on="date", how="left")
+        tmp["valid_cnt"] = 0
+        sid_min = tmp["sid"].min()
+        sid_max = tmp["sid"].max()
+
+        tmp2 = tmp[tmp["Volume"] > 0]
+        for sid in range(sid_min, sid_max + 1):
+            tmp_df = tmp2[tmp2["sid"] == sid]
+            tmp.loc[tmp["sid"] == sid, "valid_cnt"] = len(tmp_df)
+
+        sid_df = tmp[["sid", "year", "week", "valid_cnt"]]
+        sid_df = sid_df.drop_duplicates("sid")
+        self.db.post_df(sid_df, "jq_sid")
+
+        date_df = tmp[["date", "sid", "weekday"]]
+        self.db.post_df(date_df, "date")
 
     def make_table(self):
         self.make_market_table()
@@ -547,7 +586,8 @@ class InitDB:
         self.make_price_table()
         self.make_company_and_indices_table()
         self.make_indices_price_table()
-        self.make_sid_table()
+        self.make_jq_sid_table()
+        self.make_date_table()
 
     def init_table(self):
         self.init_market_table()
@@ -557,11 +597,14 @@ class InitDB:
         self.init_sector33_table()
         self.init_company_table()
         self.init_company_and_indices_table()
-        self.init_sid_table()
+        self.init_sid_date_table()
 
 
 init = InitDB()
-init.init_sid_table()
+init.make_jq_sid_table()
+init.make_date_table()
+init.init_sid_date_table()
+# init.make_jq_sid_table()
 # init.make_sid_table()
 # init.init_company_and_indices_table()
 # init.make_table()
