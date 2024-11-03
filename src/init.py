@@ -9,8 +9,10 @@ from jq.jquants import JQuantsWrapper
 from jq.sql import SQL
 from datetime import datetime, timedelta
 import pandas as pd
-import copy
 import yfinance as yf
+import re
+import copy
+
 
 # 暫定　本来は全部のデータを取得して重複削除してやるべき
 # 現在のプランだとまだそのデータが取れないので仕方なく
@@ -98,8 +100,8 @@ class InitDB:
     def __init__(self):
         self.db = DB()
         self.jq = JQuantsWrapper()
-        list = self.jq.get_list()
-        self.df = pd.DataFrame(list)
+        # list = self.jq.get_list()
+        # self.df = pd.DataFrame(list)
         self.sql = SQL(self.jq, self.db)
 
     def make_indices_table(self):
@@ -576,6 +578,82 @@ class InitDB:
         date_df = tmp[["date", "sid", "weekday"]]
         self.db.post_df(date_df, "date")
 
+    def make_trades_spec_table(self):
+        sql_seq = "CREATE SEQUENCE IF NOT EXISTS trades_spec_id_seq START 1"
+        self.db.post(sql_seq)
+        sql = (
+            "CREATE TABLE IF NOT EXISTS public.trades_spec "
+            "( "
+            "id integer NOT NULL DEFAULT nextval('trades_spec_id_seq'::regclass),"
+            "sid integer NOT NULL, "
+            '"Section" text COLLATE pg_catalog."default", '
+            '"ProprietarySales" double precision, '
+            '"ProprietaryPurchases" double precision, '
+            '"BrokerageSales" double precision, '
+            '"BrokeragePurchases" double precision, '
+            '"TotalSales" double precision, '
+            '"TotalPurchases" double precision, '
+            '"IndividualsSales" double precision, '
+            '"IndividualsPurchases" double precision, '
+            '"ForeignersSales" double precision, '
+            '"ForeignersPurchases" double precision, '
+            '"SecuritiesCosSales" double precision, '
+            '"SecuritiesCosPurchases" double precision, '
+            '"InvestmentTrustsSales" double precision, '
+            '"InvestmentTrustsPurchases" double precision, '
+            '"BusinessCosSales" double precision, '
+            '"BusinessCosPurchases" double precision, '
+            '"OtherCosSales" double precision, '
+            '"OtherCosPurchases" double precision, '
+            '"InsuranceCosSales" double precision, '
+            '"InsuranceCosPurchases" double precision, '
+            '"CityBKsRegionalBKsEtcSales" double precision, '
+            '"CityBKsRegionalBKsEtcPurchases" double precision, '
+            '"TrustBanksSales" double precision, '
+            '"TrustBanksPurchases" double precision, '
+            '"OtherFinancialInstitutionsSales" double precision, '
+            '"OtherFinancialInstitutionsPurchases" double precision, '
+            "CONSTRAINT trades_spec_pkey PRIMARY KEY (id), "
+            "CONSTRAINT trades_spec_sid_fkey FOREIGN KEY (sid) "
+            "REFERENCES public.jq_sid (sid) MATCH SIMPLE "
+            "ON UPDATE NO ACTION "
+            "ON DELETE NO ACTION "
+            "NOT VALID "
+            ") "
+        )
+
+        self.db.post(sql)
+
+    def insert_trades_spec_table(self):
+        tmp = self.jq.get_markets_trades_spec()
+        tmp_df = pd.DataFrame(tmp)
+        date_df = self.sql.get_table("date")
+
+        col = tmp_df.columns
+
+        pattern1 = r"\w*Total$"
+        pattern2 = r"\w*Balance$"
+        col_list = []
+        for name in col:
+            result1 = re.match(pattern1, name)
+            result2 = re.match(pattern2, name)
+            if result1 is None and result2 is None:
+                col_list.append(name)
+        tmp2 = tmp_df[col_list]
+
+        tmp2.loc[:, "StartDate"] = pd.to_datetime(tmp2["StartDate"]).dt.date
+        tmp2.loc[:, "EndDate"] = pd.to_datetime(tmp2["EndDate"]).dt.date
+        tmp3 = tmp2.merge(date_df, left_on="StartDate", right_on="date")
+        tmp3 = tmp3.drop(
+            ["id", "date", "weekday", "PublishedDate", "StartDate", "EndDate"], axis=1
+        )
+        tmp3.loc[tmp3["Section"] == "TSE1st", "Section"] = "TSEPrime"
+        tmp3.loc[tmp3["Section"] == "TSE2nd", "Section"] = "TSEStandard"
+        tmp3.loc[tmp3["Section"] == "TSEJASDAQ", "Section"] = "TSEStandard"
+        tmp3.loc[tmp3["Section"] == "TSEMothers", "Section"] = "TSEGrowth"
+
+        self.db.post_df(tmp3, "trades_spec")
+
     def make_table(self):
         self.make_market_table()
         self.make_indices_table()
@@ -588,6 +666,7 @@ class InitDB:
         self.make_indices_price_table()
         self.make_jq_sid_table()
         self.make_date_table()
+        self.make_trades_spec_table()
 
     def init_table(self):
         self.init_market_table()
@@ -598,12 +677,15 @@ class InitDB:
         self.init_company_table()
         self.init_company_and_indices_table()
         self.init_sid_date_table()
+        self.insert_trades_spec_table()
 
 
 init = InitDB()
-init.make_jq_sid_table()
-init.make_date_table()
-init.init_sid_date_table()
+# init.make_trades_spec_table()
+#init.insert_trades_spec_table()
+# init.make_jq_sid_table()
+# init.make_date_table()
+# init.init_sid_date_table()
 # init.make_jq_sid_table()
 # init.make_sid_table()
 # init.init_company_and_indices_table()
