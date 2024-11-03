@@ -147,7 +147,12 @@ class InitDB:
             "low real, "
             "close real, "
             "CONSTRAINT indices_price_pkey PRIMARY KEY (id), "
-            "CONSTRAINT indices_price_code_date_key UNIQUE (code, date) "
+            "CONSTRAINT indices_price_code_date_key UNIQUE (code, date),  "
+            "CONSTRAINT indices_price_code_fkey FOREIGN KEY (code) "
+            "REFERENCES public.indices (id) MATCH SIMPLE "
+            "ON UPDATE NO ACTION "
+            "ON DELETE NO ACTION "
+            "NOT VALID "
             ") "
         )
 
@@ -356,8 +361,8 @@ class InitDB:
             "high real,"
             "low real,"
             "close real,"
-            "upper_l boolean,"
-            "low_l boolean,"
+            "upper_l boolean default false,"
+            "low_l boolean defalut false,"
             "volume bigint,"
             "turnover bigint,"
             "adj real,"
@@ -654,6 +659,33 @@ class InitDB:
 
         self.db.post_df(tmp3, "trades_spec")
 
+    def make_margin_table(self):
+        sql_seq = "CREATE SEQUENCE IF NOT EXISTS margin_id_seq START 1"
+        self.db.post(sql_seq)
+        sql = (
+            "CREATE TABLE IF NOT EXISTS public.margin "
+            "( "
+            "id bigint NOT NULL DEFAULT nextval('margin_id_seq'::regclass), "
+            "date date, "
+            "company integer NOT NULL, "
+            'issue "char", '
+            "total_short bigint, "
+            "total_long bigint, "
+            "negotiable_short bigint, "
+            "negotiable_long bigint, "
+            "standard_short bigint, "
+            "standard_long bigint, "
+            "CONSTRAINT margin_pkey PRIMARY KEY (id), "
+            "CONSTRAINT margin_company_date_issue_key UNIQUE (company, date, issue), "
+            "CONSTRAINT margin_company_fkey FOREIGN KEY (company) "
+            "REFERENCES public.company (id) MATCH SIMPLE "
+            "ON UPDATE NO ACTION "
+            "ON DELETE NO ACTION "
+            "NOT VALID "
+            ")  "
+        )
+        self.db.post(sql)
+
     def make_table(self):
         self.make_market_table()
         self.make_indices_table()
@@ -667,6 +699,7 @@ class InitDB:
         self.make_jq_sid_table()
         self.make_date_table()
         self.make_trades_spec_table()
+        self.make_margin_table()
 
     def init_table(self):
         self.init_market_table()
@@ -681,8 +714,9 @@ class InitDB:
 
 
 init = InitDB()
+init.make_margin_table()
 # init.make_trades_spec_table()
-#init.insert_trades_spec_table()
+# init.insert_trades_spec_table()
 # init.make_jq_sid_table()
 # init.make_date_table()
 # init.init_sid_date_table()

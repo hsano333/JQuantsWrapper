@@ -84,7 +84,7 @@ class JQuantsWrapper:
             args = {"date": date}
 
         uri = "https://api.jquants.com/v1/fins/statements"
-        return self.get_info(uri, args)
+        return self.get_info(uri, args)["statements"]
 
     ### 決算発表予定日取得
     def get_fins_announcement(self):
@@ -149,7 +149,7 @@ class JQuantsWrapper:
     def get_weekly_margin_interest(self, code="", date="", date_to=""):
         uri = "https://api.jquants.com/v1/markets/weekly_margin_interest"
         args = get_code_date(code, date, date_to)
-        return self.get_info(uri, args)
+        return self.get_info(uri, args)["weekly_margin_interest"]
 
     ### 業種別空売り比率
     # if date_to and date is valid, date is date_from

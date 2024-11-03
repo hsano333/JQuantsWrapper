@@ -74,6 +74,31 @@ class SQL:
         except Exception as e:
             print(f"Error insert_price():{e}")
 
+    # 未確認
+    def insert_margin(self, code):
+        try:
+            tmp = self.jq.get_weekly_margin_interest.get_prices(code=code)
+            df = pd.DataFrame(tmp)
+            df.columns = df.columns.str.lower()
+            df = df.rename(
+                columns={
+                    "ShortMarginTradeVolume": "upper_l",
+                    "LongMarginTradeVolume": "total_long",
+                    "ShortNegotiableMarginTradeVolume": "negotiable_short",
+                    "LongNegotiableMarginTradeVolume": "negotiable_long",
+                    "ShortStandardizedMarginTradeVolume": "standard_short",
+                    "LongStandardizedMarginTradeVolume": "standard_long",
+                    "IssueType": "type",
+                }
+            )
+            company_code = self.get_company_id(code)
+            df["company"] = company_code
+            df = df.drop(["code"], axis=1)
+
+            self.db.post_df(df, "margin")
+        except Exception as e:
+            print(f"Error insert_price():{e}")
+
     def insert_indice_price(self, code):
         # 未チェック 動作不明
         try:
