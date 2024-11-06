@@ -1,5 +1,8 @@
 import pandas as pd
 
+# from db.mydb import DB
+# from .jquants import JQuantsWrapper
+
 value_step = {
     100: 30,
     200: 50,
@@ -47,9 +50,11 @@ def get_limit(val):
 
 
 class SQL:
-    def __init__(self, jq, db):
+    def __init__(self, db, jq):
         self.db = db
         self.jq = jq
+        # self.db = DB()
+        # self.jq = JQuantsWrapper()
 
     def insert_price(self, code):
         try:
@@ -68,8 +73,9 @@ class SQL:
             company_code = self.get_company_id(code)
             df["company"] = company_code
             df = df.drop(["code"], axis=1)
+            df = df.fillna({"volume": 0, "turnover": 0})
+            df = df.ffill()
             df["limit"] = df.shift(1)["close"].apply(get_limit)
-
             self.db.post_df(df, "price")
         except Exception as e:
             print(f"Error insert_price():{e}")
@@ -127,6 +133,14 @@ class SQL:
         for value in tmp:
             rval.append(value[0])
         return rval
+
+    def get_company_code(self, id):
+        sql = f"select code from company where id = '{id}'"
+        tmp = self.db.get_one(sql)
+        id = 0
+        if tmp is not None:
+            id = tmp[0]
+        return id
 
     def get_company_id(self, company_code) -> []:
         sql = f"select id from company where code = '{company_code}'"

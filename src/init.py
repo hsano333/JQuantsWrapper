@@ -102,7 +102,15 @@ class InitDB:
         self.jq = JQuantsWrapper()
         # list = self.jq.get_list()
         # self.df = pd.DataFrame(list)
-        self.sql = SQL(self.jq, self.db)
+        # self.sql = SQL(self.jq, self.db)
+        self.sql = SQL(self.db, self.jq)
+        self.df = None
+
+    def df(self):
+        if self.df is None:
+            list = self.jq.get_list()
+            self.df = pd.DataFrame(list)
+        return self.df
 
     def make_indices_table(self):
         sql_seq = "CREATE SEQUENCE IF NOT EXISTS indices_id_seq START 1"
@@ -199,7 +207,7 @@ class InitDB:
 
         secotr17_sql = "select id,code from sector17"
         sector17 = self.db.get_df(secotr17_sql)
-        tmp = self.df.merge(
+        tmp = self.df().merge(
             sector17, left_on="Sector17Code", right_on="code", how="left"
         )
         tmp = tmp.rename(columns={"id": "sector17"})
@@ -378,6 +386,11 @@ class InitDB:
         self.db.post(sql)
         pass
 
+    def init_price_table(self):
+        company = self.sql.get_table("company")
+        # self.sql.insert_price("72030")
+        company["code"].apply(lambda code: self.sql.insert_price(code))
+
     def make_sector17_table(self):
         sql_seq = "CREATE SEQUENCE IF NOT EXISTS sector17_id_seq START 1"
         self.db.post(sql_seq)
@@ -394,7 +407,7 @@ class InitDB:
         self.db.post(sql)
 
     def init_sector17_table(self):
-        sector17 = self.df.drop_duplicates(subset=["Sector17Code"])
+        sector17 = self.df().drop_duplicates(subset=["Sector17Code"])
         sector17_data = sector17.iloc[:, 4:6]
 
         sector17_data.columns = ["code", "name"]
@@ -424,7 +437,7 @@ class InitDB:
         self.db.post(sql)
 
     def init_sector33_table(self):
-        sector33 = self.df.drop_duplicates(subset=["Sector33Code"])
+        sector33 = self.df().drop_duplicates(subset=["Sector33Code"])
         sector33_data = sector33.iloc[:, 6:8]
         sector33_data.columns = ["code", "name"]
 
@@ -452,7 +465,7 @@ class InitDB:
         self.db.post(sql)
 
     def init_topix_scale_table(self):
-        scale = self.df.drop_duplicates(subset=["ScaleCategory"])
+        scale = self.df().drop_duplicates(subset=["ScaleCategory"])
 
         scale_data = scale[["ScaleCategory"]]
         scale_data.columns = ["name"]
@@ -475,7 +488,7 @@ class InitDB:
         self.db.post(sql)
 
     def init_market_table(self):
-        market = self.df.drop_duplicates(subset=["MarketCode"])
+        market = self.df().drop_duplicates(subset=["MarketCode"])
         market_data = market.iloc[:, 9:11]
         market_data.columns = ["code", "name"]
         market_data = market_data.sort_values("code")
@@ -714,7 +727,10 @@ class InitDB:
 
 
 init = InitDB()
-init.make_margin_table()
+id = init.sql.get_company_id(72030)
+print(id)
+# init.init_price_table()
+# init.make_margin_table()
 # init.make_trades_spec_table()
 # init.insert_trades_spec_table()
 # init.make_jq_sid_table()

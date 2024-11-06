@@ -8,6 +8,8 @@ def get_code_date(code, date, date_to):
         args = {"code": code}
     elif code == "" and not date == "" and date_to == "":
         args = {"date": date}
+    elif not code == "" and not date == "" and date_to == "":
+        args = {"code": code, "date": date}
     elif not code == "" and not date == "" and not date_to == "":
         args = {"code": code, "from": date, "to": date_to}
     else:
@@ -40,6 +42,7 @@ class JQuantsWrapper:
             uri = uri + f"{key}={value}&"
         uri.removesuffix("-&")
         uri.removesuffix("-?")
+        print(f"{uri=}")
         req = requests.get(uri, headers=self.headers)
 
         tmp_data = {}
