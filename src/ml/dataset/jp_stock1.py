@@ -7,11 +7,17 @@ from jq.sql import SQL
 import numpy as np
 import torch
 
+from base_dataset import BaseDataset
+
 
 class SimpleDataset(Dataset):
     TEST_SIZE = 5 * 30
 
     def __init__(self, code=72030, label="bool", sector=False):
+        # def __init__(self):
+        code = 72030
+        label = "bool"
+        sector = False
         self.db = DB()
         self.jq = JQuantsWrapper()
         self.sql = SQL(self.db, self.jq)
@@ -55,4 +61,4 @@ class JQDataset(Dataset):
         pass
 
 
-dt = SimpleDataset()
+# dt = SimpleDataset()
