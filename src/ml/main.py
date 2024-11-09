@@ -57,7 +57,7 @@ class MyTorch:
         self.eval_data = self.dataset.get_eval_data()
         # self.eval_batch = DataLoader(
         #    dataset=eval_data,
-        #    batch_size=BATCH_SIZE,
+        #    batch_size=eval_data.__len__(),
         #    shuffle=False,
         #    num_workers=NUM_WORKERS,
         # )
@@ -67,6 +67,8 @@ class MyTorch:
 
         # self.criterion = self.model.get_criterion()
         self.optimizer = optim.Adam(net.parameters())
+        # self.compute_batch_loss_compiled = torch.compile(self.model.compute_batch_loss)
+        self.compute_batch_loss_compiled = self.model.compute_batch_loss
 
     def enumerateWithEstimate(
         self,
@@ -179,12 +181,13 @@ class MyTorch:
             # label = label.to(self.device)
             # prediction = self.model(data)
 
-            loss = self.model.compute_batch_loss(
+            loss = self.compute_batch_loss_compiled(
+                # loss = self.model.compute_batch_loss(
                 batch_ndx,
                 data_label,
                 self.device,
                 trainMetrics,
-                BATCH_SIZE,
+                batch.batch_size,
             )
             loss.backward()
             self.optimizer.step()
@@ -201,32 +204,35 @@ class MyTorch:
                 iter=batch, text=f"E{ndx}/{epoch} Validation:", ndx=ndx
             )
             for batch_ndx, data_label in batch_iter:
-                self.model.compute_batch_loss(
+                self.compute_batch_loss_compiled(
+                    # self.model.compute_batch_loss(
                     batch_ndx,
                     data_label,
                     self.device,
                     valMetrics,
-                    BATCH_SIZE,
+                    batch.batch_size,
                 )
         return valMetrics.to("cpu")
 
-    def do_evaluation(self, data_label):
-        label = data_label[1]
-        size = label.size(0)
-        valMetrics = torch.zeros(METRICS_SIZE, size, device=self.device)
+    def do_evaluation(self, batch):
+        (data, label) = batch
+        size = len(label)
+        print(f"{size=}")
         with torch.no_grad():
             self.model.eval()
+            valMetrics = torch.zeros(METRICS_SIZE, size, device=self.device)
+
             self.model.compute_batch_loss(
                 0,
-                data_label,
+                batch,
                 self.device,
                 valMetrics,
                 size,
             )
-            metrics = valMetrics.to("cpu")
-            results = self.model.evaluate(metrics)
-            for str_key, value in results.items():
-                print(f"{str_key}:{value}")
+        # metrics = valMetrics.to("cpu")
+        results = self.model.evaluate(valMetrics)
+        for str_key, value in results.items():
+            print(f"{str_key}:{value}")
 
     def main(self):
         best_score = 0

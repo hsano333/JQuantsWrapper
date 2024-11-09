@@ -1,5 +1,5 @@
 from sklearn.datasets import load_iris
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, TensorDataset
 
 # from ..jq.sql import SQL
 from db.mydb import DB
@@ -12,12 +12,16 @@ from base_dataset import BaseDataset
 
 
 class TestIris(Dataset):
-    TEST_SIZE = 5 * 30
+    TEST_SIZE = 30
 
     def __init__(self):
         iris = load_iris()
-        self.data = torch.tensor(iris.data, dtype=torch.float32)
-        self.label = torch.tensor(iris.target)
+        self.data = torch.tensor(iris.data[: -self.TEST_SIZE], dtype=torch.float32)
+        self.label = torch.tensor(iris.target[: -self.TEST_SIZE])
+
+        # self.eval = TensorDataset(
+        # self.data[-self.TEST_SIZE :], self.label[-self.TEST_SIZE :]
+        # )
 
     def __len__(self):
         return len(self.data)
@@ -26,4 +30,6 @@ class TestIris(Dataset):
         return (self.data[ndx], self.label[ndx])
 
     def get_eval_data(self):
+        # return self.eval
+        # dataset = Dataset(self.eval)
         return (self.data[-self.TEST_SIZE :], self.label[-self.TEST_SIZE :])

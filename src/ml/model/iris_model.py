@@ -37,6 +37,8 @@ class IrisModel(nn.Module):
             torch.nn.Linear(2, D_out),
         )
 
+        # self.compute_batch_loss = torch.compile(self.compute_batch_loss_pre_compile)
+
     def forward(self, x):
         x = F.relu(self.linear1(x))
         x = self.linear2(x)
@@ -57,6 +59,7 @@ class IrisModel(nn.Module):
 
         loss = self.criterion(prediction, label)
 
+        # print(f"{batch_ndx=}, {batch_max_size=}, {label.size(0)=}")
         start_ndx = batch_ndx * batch_max_size
         end_ndx = start_ndx + label.size(0)
 
