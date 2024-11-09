@@ -16,9 +16,7 @@ class TestIris(Dataset):
 
     def __init__(self):
         iris = load_iris()
-        # data = iris.data
         self.data = torch.tensor(iris.data, dtype=torch.float32)
-        # self.label = torch.tensor(iris.target, dtype=torch.float32)
         self.label = torch.tensor(iris.target)
 
     def __len__(self):
@@ -27,5 +25,5 @@ class TestIris(Dataset):
     def __getitem__(self, ndx):
         return (self.data[ndx], self.label[ndx])
 
-    def get_test_data(self):
-        return self.data[-self.TEST_SIZE :]
+    def get_eval_data(self):
+        return (self.data[-self.TEST_SIZE :], self.label[-self.TEST_SIZE :])

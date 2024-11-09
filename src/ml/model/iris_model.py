@@ -59,7 +59,6 @@ class IrisModel(nn.Module):
 
         start_ndx = batch_ndx * batch_max_size
         end_ndx = start_ndx + label.size(0)
-        # print(f"{start_ndx=}, {end_ndx=}")
 
         with torch.no_grad():
             # print(f"{label=}")
@@ -72,7 +71,7 @@ class IrisModel(nn.Module):
 
         return loss
 
-    def log_metrics(self, epoch_ndx, mode_str, metrics, writer):
+    def evaluate(self, metrics):
         neg_predict = metrics[:, metrics[METRICS_PRED_NDX] == Diff.NEG]
         zero_predict = metrics[:, metrics[METRICS_PRED_NDX] == Diff.ZERO]
         pos_predict = metrics[:, metrics[METRICS_PRED_NDX] == Diff.POS]
@@ -118,9 +117,23 @@ class IrisModel(nn.Module):
         all_ratio = 100 * all_ok_cnt / sample_cnt
         ## writer.add_scalar(mode_str + ":NG", neg_predict, epoch_ndx)
         # writer.add_scalar(mode_str + ":ZERO", zero_predict, epoch_ndx)
-        writer.add_scalar(mode_str + ":NG1", neg_ratio1, epoch_ndx)
-        writer.add_scalar(mode_str + ":NG2", neg_ratio2, epoch_ndx)
-        writer.add_scalar(mode_str + ":OK1", pos_ratio1, epoch_ndx)
-        writer.add_scalar(mode_str + ":OK2", pos_ratio2, epoch_ndx)
-        writer.add_scalar(mode_str + ":ZERO", zero_ratio, epoch_ndx)
-        writer.add_scalar(mode_str + ":ALL_OK", all_ratio, epoch_ndx)
+
+        return {
+            "NEG1": neg_ratio1,
+            "NEG2": neg_ratio2,
+            "ZERO": zero_ratio,
+            "POS1": pos_ratio1,
+            "POS2": pos_ratio2,
+            "ALL": all_ratio,
+        }
+
+    def log_metrics(self, epoch_ndx, mode_str, metrics, writer):
+        results = self.evaluate(metrics)
+
+        for str_key, value in results.items():
+            writer.add_scalar(mode_str + ":" + str_key, value, epoch_ndx)
+            # writer.add_scalar(mode_str + ":NG2", neg_ratio2, epoch_ndx)
+            # writer.add_scalar(mode_str + ":OK1", pos_ratio1, epoch_ndx)
+            # writer.add_scalar(mode_str + ":OK2", pos_ratio2, epoch_ndx)
+            # writer.add_scalar(mode_str + ":ZERO", zero_ratio, epoch_ndx)
+            # writer.add_scalar(mode_str + ":ALL_OK", all_ratio, epoch_ndx)

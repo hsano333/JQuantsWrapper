@@ -42,7 +42,7 @@ class SimpleDataset(Dataset):
     def __getitem__(self, ndx):
         return (self.data[ndx], self.label[ndx])
 
-    def get_test_data(self):
+    def get_eval_data(self):
         return self.data[-self.TEST_SIZE :]
 
 
