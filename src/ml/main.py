@@ -1,9 +1,11 @@
 import os
-from ml.dataset.jp_stock1 import SimpleDataset
-from ml.model.simple_model import SimpleModel
 
-from ml.dataset.test_iris import TestIris
-from ml.model.iris_model import IrisModel
+# from ml.dataset.jp_stock1 import SimpleDataset
+# from ml.model.simple_model import SimpleModel
+from .model.iris.manager import BaseManager
+
+# from ml.dataset.test_iris import TestIris
+# from ml.model.iris_model import IrisModel
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -31,22 +33,20 @@ class MyTorch:
         return self.board_log_path
 
     def __init__(self, save_path="save", continue_epoch=False):
+        manager = BaseManager()
         # self.dataset = SimpleDataset()
         # self.model = SimpleModel()
         # self.model_manager = IrisManager()
-        self.dataset = TestIris()
-        self.model = IrisModel()
+        self.dataset = manager.get_dataset()
+        self.model = manager.get_model()
+        path = manager.get_path()
 
-        dataset_name = type(self.dataset).__name__
-        model_name = type(self.model).__name__
+        # dataset_name = type(self.dataset).__name__
+        # model_name = type(self.model).__name__
 
-        self.board_log_path = f"{save_path}/{dataset_name}_{model_name}/board_log"
-        self.save_tmp_model_path = (
-            f"{save_path}/{dataset_name}_{model_name}/tmp_learned_model.pth"
-        )
-        self.save_model_path = (
-            f"{save_path}/{dataset_name}_{model_name}/learned_model.pth"
-        )
+        self.board_log_path = f"{path}/board_log"
+        self.save_tmp_model_path = f"{path}/tmp_learned_model.pth"
+        self.save_model_path = f"{path}/learned_model.pth"
         self.writer = SummaryWriter(self.board_log_path)
 
         train_data, val_data = random_split(self.dataset, [0.5, 0.5])
