@@ -1,19 +1,17 @@
 import os
 
-# from ml.dataset.jp_stock1 import SimpleDataset
-# from ml.model.simple_model import SimpleModel
 from .model.iris.manager import BaseManager
 
-# from ml.dataset.test_iris import TestIris
-# from ml.model.iris_model import IrisModel
 
 from torch.utils.tensorboard import SummaryWriter
 
 import torch
 from torch import optim
-import torch.nn as nn
 from torch.utils.data import random_split
 from torch.utils.data import DataLoader
+
+import torch._dynamo
+
 
 import time
 import datetime
@@ -21,6 +19,10 @@ import datetime
 BATCH_SIZE = 10
 NUM_WORKERS = 4
 
+torch._dynamo.config.suppress_errors = True
+
+# 精度をわずかに下げて、計算速度を向上させる
+torch.set_float32_matmul_precision("high")
 # 進捗を表示する間隔(10なら10回学習ごとに一度経過を出力)
 DISPLAY_STEP = 10
 
@@ -33,16 +35,11 @@ class MyTorch:
         return self.board_log_path
 
     def __init__(self, save_path="save", continue_epoch=False):
-        manager = BaseManager()
-        # self.dataset = SimpleDataset()
-        # self.model = SimpleModel()
-        # self.model_manager = IrisManager()
-        self.dataset = manager.get_dataset()
-        self.model = manager.get_model()
-        path = manager.get_path()
-
-        # dataset_name = type(self.dataset).__name__
-        # model_name = type(self.model).__name__
+        self.manager = BaseManager()
+        self.dataset = self.manager.get_dataset()
+        # self.model = manager.get_model()
+        tmp_model = self.manager.get_model()
+        path = self.manager.get_path()
 
         self.board_log_path = f"{path}/board_log"
         self.save_tmp_model_path = f"{path}/tmp_learned_model.pth"
@@ -63,18 +60,16 @@ class MyTorch:
             num_workers=NUM_WORKERS,
         )
         self.eval_data = self.dataset.get_eval_data()
-        # self.eval_batch = DataLoader(
-        #    dataset=eval_data,
-        #    batch_size=eval_data.__len__(),
-        #    shuffle=False,
-        #    num_workers=NUM_WORKERS,
-        # )
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # self.device = torch.device("cpu")
+        print(f"{self.device=}")
+        # net = self.model.to(self.device)
+        # self.model = tmp_model.to(self.device)
+        # self.model = torch.compile(tmp_model.to(self.device))
+        self.model = torch.compile(tmp_model.to(self.device))
 
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        net = self.model.to(self.device)
-
-        # self.criterion = self.model.get_criterion()
-        self.optimizer = optim.Adam(net.parameters())
+        # self.optimizer = optim.Adam(net.parameters())
+        self.optimizer = optim.Adam(self.model.parameters())
 
         if continue_epoch and os.path.isfile(self.save_tmp_model_path):
             checkpoint = torch.load(self.save_tmp_model_path, weights_only=True)
@@ -89,7 +84,7 @@ class MyTorch:
             self.start_epoch = 0
 
         # self.compute_batch_loss_compiled = torch.compile(self.model.compute_batch_loss)
-        self.compute_batch_loss_compiled = self.model.compute_batch_loss
+        self.compute_batch_loss_compiled = self.manager.compute_batch_loss
 
     def enumerateWithEstimate(
         self,
@@ -188,8 +183,6 @@ class MyTorch:
             pass
 
     def do_training(self, ndx, epoch, batch):
-        # train_accuracy = 0
-        # train_loss = 0
         self.model.train()
         trainMetrics = torch.zeros(METRICS_SIZE, len(batch.dataset), device=self.device)
         batch_iter = self.enumerate_with_estimate(
@@ -197,13 +190,8 @@ class MyTorch:
         )
         for batch_ndx, data_label in batch_iter:
             self.optimizer.zero_grad()
-
-            # data = data.to(self.device)
-            # label = label.to(self.device)
-            # prediction = self.model(data)
-
             self.loss = self.compute_batch_loss_compiled(
-                # loss = self.model.compute_batch_loss(
+                self.model,
                 batch_ndx,
                 data_label,
                 self.device,
@@ -226,7 +214,7 @@ class MyTorch:
             )
             for batch_ndx, data_label in batch_iter:
                 self.compute_batch_loss_compiled(
-                    # self.model.compute_batch_loss(
+                    self.model,
                     batch_ndx,
                     data_label,
                     self.device,
@@ -242,14 +230,15 @@ class MyTorch:
             self.model.eval()
             evalMetrics = torch.zeros(METRICS_SIZE, size, device=self.device)
 
-            self.model.compute_batch_loss(
+            self.manager.compute_batch_loss(
+                self.model,
                 0,
                 batch,
                 self.device,
                 evalMetrics,
                 size,
             )
-        current_score = self.model.log_metrics(0, "eval", evalMetrics, self.writer)
+        current_score = self.manager.log_metrics(0, "eval", evalMetrics, self.writer)
         print(f"{current_score=}")
         best_score = 0
         if os.path.isfile(self.save_model_path):
@@ -277,14 +266,13 @@ class MyTorch:
         epoch = 101
         start_at = time.time()
         print("----------------------------Start----------------------------")
-        max_point = 0
         for ndx in range(self.start_epoch, epoch):
             trnMetrics = self.do_training(ndx, epoch, self.train_batch)
             valMetrics = self.do_validation(ndx, epoch, self.val_batch)
-            self.model.log_metrics(ndx, "trn", trnMetrics, self.writer)
-            score = self.model.log_metrics(ndx, "val", valMetrics, self.writer)
-            if score > self.best_score:
-                score = self.best_score
+            self.manager.log_metrics(ndx, "trn", trnMetrics, self.writer)
+            score = self.manager.log_metrics(ndx, "val", valMetrics, self.writer)
+            if score > self.best_score and (ndx > epoch / 5) and (score > 50):
+                self.best_score = score
                 self.save_model(ndx, score, self.save_tmp_model_path)
 
         self.do_evaluation(epoch, self.eval_data)
@@ -292,7 +280,3 @@ class MyTorch:
         print("----------------------------End----------------------------")
         print(f" total time:{(time.time() - start_at):.2f}")
         print(f"execute:tensorboard --logdir {self.get_board_log_path()}")
-
-
-# mytorch = MyTorch()
-# mytorch.main()
