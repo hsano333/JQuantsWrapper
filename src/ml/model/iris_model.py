@@ -140,3 +140,4 @@ class IrisModel(nn.Module):
             # writer.add_scalar(mode_str + ":OK2", pos_ratio2, epoch_ndx)
             # writer.add_scalar(mode_str + ":ZERO", zero_ratio, epoch_ndx)
             # writer.add_scalar(mode_str + ":ALL_OK", all_ratio, epoch_ndx)
+        return results["ALL"]

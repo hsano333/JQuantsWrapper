@@ -1,3 +1,4 @@
+import os
 from ml.dataset.jp_stock1 import SimpleDataset
 from ml.model.simple_model import SimpleModel
 
@@ -29,16 +30,23 @@ class MyTorch:
     def get_board_log_path(self):
         return self.board_log_path
 
-    def __init__(self):
+    def __init__(self, save_path="save", continue_epoch=False):
         # self.dataset = SimpleDataset()
         # self.model = SimpleModel()
+        # self.model_manager = IrisManager()
         self.dataset = TestIris()
         self.model = IrisModel()
 
         dataset_name = type(self.dataset).__name__
         model_name = type(self.model).__name__
 
-        self.board_log_path = f"board_log/{dataset_name}_{model_name}"
+        self.board_log_path = f"{save_path}/{dataset_name}_{model_name}/board_log"
+        self.save_tmp_model_path = (
+            f"{save_path}/{dataset_name}_{model_name}/tmp_learned_model.pth"
+        )
+        self.save_model_path = (
+            f"{save_path}/{dataset_name}_{model_name}/learned_model.pth"
+        )
         self.writer = SummaryWriter(self.board_log_path)
 
         train_data, val_data = random_split(self.dataset, [0.5, 0.5])
@@ -67,6 +75,19 @@ class MyTorch:
 
         # self.criterion = self.model.get_criterion()
         self.optimizer = optim.Adam(net.parameters())
+
+        if continue_epoch and os.path.isfile(self.save_tmp_model_path):
+            checkpoint = torch.load(self.save_tmp_model_path, weights_only=True)
+            self.model.load_state_dict(checkpoint["model_state_dict"])
+            self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            self.start_epoch = checkpoint["epoch"]
+            self.loss = checkpoint["loss"]
+            self.best_score = checkpoint["score"]
+        else:
+            self.loss = 0
+            self.best_score = 0
+            self.start_epoch = 0
+
         # self.compute_batch_loss_compiled = torch.compile(self.model.compute_batch_loss)
         self.compute_batch_loss_compiled = self.model.compute_batch_loss
 
@@ -181,7 +202,7 @@ class MyTorch:
             # label = label.to(self.device)
             # prediction = self.model(data)
 
-            loss = self.compute_batch_loss_compiled(
+            self.loss = self.compute_batch_loss_compiled(
                 # loss = self.model.compute_batch_loss(
                 batch_ndx,
                 data_label,
@@ -189,7 +210,7 @@ class MyTorch:
                 trainMetrics,
                 batch.batch_size,
             )
-            loss.backward()
+            self.loss.backward()
             self.optimizer.step()
 
         return trainMetrics.to("cpu")
@@ -214,39 +235,59 @@ class MyTorch:
                 )
         return valMetrics.to("cpu")
 
-    def do_evaluation(self, batch):
+    def do_evaluation(self, epoch_ndx, batch):
         (data, label) = batch
         size = len(label)
-        print(f"{size=}")
         with torch.no_grad():
             self.model.eval()
-            valMetrics = torch.zeros(METRICS_SIZE, size, device=self.device)
+            evalMetrics = torch.zeros(METRICS_SIZE, size, device=self.device)
 
             self.model.compute_batch_loss(
                 0,
                 batch,
                 self.device,
-                valMetrics,
+                evalMetrics,
                 size,
             )
-        # metrics = valMetrics.to("cpu")
-        results = self.model.evaluate(valMetrics)
-        for str_key, value in results.items():
-            print(f"{str_key}:{value}")
+        current_score = self.model.log_metrics(0, "eval", evalMetrics, self.writer)
+        print(f"{current_score=}")
+        best_score = 0
+        if os.path.isfile(self.save_model_path):
+            checkpoint = torch.load(self.save_model_path, weights_only=True)
+            best_score = checkpoint["score"]
+            print(f"load:{best_score=}")
+        if current_score > best_score:
+            print(f"best_score is update:{best_score:.2f} => {current_score:.2f}")
+            self.save_model(epoch_ndx, current_score, self.save_model_path)
+
+    def save_model(self, epoch_ndx, best_score, path):
+        torch.save(
+            {
+                "epoch": epoch_ndx,
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "loss": self.loss,
+                "score": best_score,
+            },
+            path,
+        )
 
     def main(self):
-        best_score = 0
         ndx = 0
         epoch = 101
         start_at = time.time()
         print("----------------------------Start----------------------------")
-        for ndx in range(epoch):
+        max_point = 0
+        for ndx in range(self.start_epoch, epoch):
             trnMetrics = self.do_training(ndx, epoch, self.train_batch)
             valMetrics = self.do_validation(ndx, epoch, self.val_batch)
             self.model.log_metrics(ndx, "trn", trnMetrics, self.writer)
-            self.model.log_metrics(ndx, "val", valMetrics, self.writer)
+            score = self.model.log_metrics(ndx, "val", valMetrics, self.writer)
+            if score > self.best_score:
+                score = self.best_score
+                self.save_model(ndx, score, self.save_tmp_model_path)
 
-        self.do_evaluation(self.eval_data)
+        self.do_evaluation(epoch, self.eval_data)
         self.writer.close()
         print("----------------------------End----------------------------")
         print(f" total time:{(time.time() - start_at):.2f}")
