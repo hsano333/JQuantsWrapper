@@ -100,6 +100,7 @@ class SQL:
             columns = columns.drop("company")
             columns = columns.insert(0, "company")
             df = df.reindex(columns=columns)
+            df = df.replace("", pd.NA)
 
             self.db.post_df(df, "fins")
         except Exception as e:
