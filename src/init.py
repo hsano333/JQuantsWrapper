@@ -699,6 +699,137 @@ class InitDB:
         )
         self.db.post(sql)
 
+    def make_fins_table(self):
+        sql_seq = "CREATE SEQUENCE IF NOT EXISTS fins_id_seq START 1"
+        self.db.post(sql_seq)
+
+        sql = (
+            "CREATE TABLE IF NOT EXISTS public.fins "
+            "( "
+            "id integer NOT NULL DEFAULT nextval('fins_id_seq'::regclass), "
+            "company bigint NOT NULL, "
+            "date date NOT NULL, "
+            '"DisclosureNumber" text COLLATE pg_catalog."default", '
+            '"TypeOfDocument" text COLLATE pg_catalog."default", '
+            '"TypeOfCurrentPeriod" text COLLATE pg_catalog."default", '
+            '"CurrentPeriodStartDate" text COLLATE pg_catalog."default", '
+            '"CurrentPeriodEndDate" text COLLATE pg_catalog."default", '
+            '"CurrentFiscalYearStartDate" text COLLATE pg_catalog."default", '
+            '"CurrentFiscalYearEndDate" text COLLATE pg_catalog."default", '
+            '"NextFiscalYearStartDate" text COLLATE pg_catalog."default", '
+            '"NextFiscalYearEndDate" text COLLATE pg_catalog."default", '
+            '"NetSales" text COLLATE pg_catalog."default", '
+            '"OperatingProfit" text COLLATE pg_catalog."default", '
+            '"OrdinaryProfit" text COLLATE pg_catalog."default", '
+            '"Profit" text COLLATE pg_catalog."default", '
+            '"EarningsPerShare" text COLLATE pg_catalog."default", '
+            '"DilutedEarningsPerShare" text COLLATE pg_catalog."default", '
+            '"TotalAssets" text COLLATE pg_catalog."default", '
+            '"Equity" text COLLATE pg_catalog."default", '
+            '"EquityToAssetRatio" text COLLATE pg_catalog."default", '
+            '"BookValuePerShare" text COLLATE pg_catalog."default", '
+            '"CashFlowsFromOperatingActivities" text COLLATE pg_catalog."default", '
+            '"CashFlowsFromInvestingActivities" text COLLATE pg_catalog."default", '
+            '"CashFlowsFromFinancingActivities" text COLLATE pg_catalog."default", '
+            '"CashAndEquivalents" text COLLATE pg_catalog."default", '
+            '"ResultDividendPerShare1stQuarter" text COLLATE pg_catalog."default", '
+            '"ResultDividendPerShare2ndQuarter" text COLLATE pg_catalog."default", '
+            '"ResultDividendPerShare3rdQuarter" text COLLATE pg_catalog."default", '
+            '"ResultDividendPerShareFiscalYearEnd" text COLLATE pg_catalog."default", '
+            '"ResultDividendPerShareAnnual" text COLLATE pg_catalog."default", '
+            '"DistributionsPerUnit(REIT)" text COLLATE pg_catalog."default", '
+            '"ResultTotalDividendPaidAnnual" text COLLATE pg_catalog."default", '
+            '"ResultPayoutRatioAnnual" text COLLATE pg_catalog."default", '
+            '"ForecastDividendPerShare1stQuarter" text COLLATE pg_catalog."default", '
+            '"ForecastDividendPerShare2ndQuarter" text COLLATE pg_catalog."default", '
+            '"ForecastDividendPerShare3rdQuarter" text COLLATE pg_catalog."default", '
+            '"ForecastDividendPerShareFiscalYearEnd" text COLLATE pg_catalog."default", '
+            '"ForecastDividendPerShareAnnual" text COLLATE pg_catalog."default", '
+            '"ForecastDistributionsPerUnit(REIT)" text COLLATE pg_catalog."default", '
+            '"ForecastTotalDividendPaidAnnual" text COLLATE pg_catalog."default", '
+            '"ForecastPayoutRatioAnnual" text COLLATE pg_catalog."default", '
+            '"NextYearForecastDividendPerShare1stQuarter" text COLLATE pg_catalog."default", '
+            '"NextYearForecastDividendPerShare2ndQuarter" text COLLATE pg_catalog."default", '
+            '"NextYearForecastDividendPerShare3rdQuarter" text COLLATE pg_catalog."default", '
+            '"NextYearForecastDividendPerShareFiscalYearEnd" text COLLATE pg_catalog."default", '
+            '"NextYearForecastDividendPerShareAnnual" text COLLATE pg_catalog."default", '
+            '"NextYearForecastDistributionsPerUnit(REIT)" text COLLATE pg_catalog."default", '
+            '"NextYearForecastPayoutRatioAnnual" text COLLATE pg_catalog."default", '
+            '"ForecastNetSales2ndQuarter" text COLLATE pg_catalog."default", '
+            '"ForecastOperatingProfit2ndQuarter" text COLLATE pg_catalog."default", '
+            '"ForecastOrdinaryProfit2ndQuarter" text COLLATE pg_catalog."default", '
+            '"ForecastProfit2ndQuarter" text COLLATE pg_catalog."default", '
+            '"ForecastEarningsPerShare2ndQuarter" text COLLATE pg_catalog."default", '
+            '"NextYearForecastNetSales2ndQuarter" text COLLATE pg_catalog."default", '
+            '"NextYearForecastOperatingProfit2ndQuarter" text COLLATE pg_catalog."default", '
+            '"NextYearForecastOrdinaryProfit2ndQuarter" text COLLATE pg_catalog."default", '
+            '"NextYearForecastProfit2ndQuarter" text COLLATE pg_catalog."default", '
+            '"NextYearForecastEarningsPerShare2ndQuarter" text COLLATE pg_catalog."default", '
+            '"ForecastNetSales" text COLLATE pg_catalog."default", '
+            '"ForecastOperatingProfit" text COLLATE pg_catalog."default", '
+            '"ForecastOrdinaryProfit" text COLLATE pg_catalog."default", '
+            '"ForecastProfit" text COLLATE pg_catalog."default", '
+            '"ForecastEarningsPerShare" text COLLATE pg_catalog."default", '
+            '"NextYearForecastNetSales" text COLLATE pg_catalog."default", '
+            '"NextYearForecastOperatingProfit" text COLLATE pg_catalog."default", '
+            '"NextYearForecastOrdinaryProfit" text COLLATE pg_catalog."default", '
+            '"NextYearForecastProfit" text COLLATE pg_catalog."default", '
+            '"NextYearForecastEarningsPerShare" text COLLATE pg_catalog."default", '
+            '"MaterialChangesInSubsidiaries" text COLLATE pg_catalog."default", '
+            '"SignificantChangesInTheScopeOfConsolidation" text COLLATE pg_catalog."default", '
+            '"ChangesBasedOnRevisionsOfAccountingStandard" text COLLATE pg_catalog."default", '
+            '"ChangesOtherThanOnesBasedOnRevisionsOfAccountingStandard" text COLLATE pg_catalog."default", '
+            '"ChangesInAccountingEstimates" text COLLATE pg_catalog."default", '
+            '"RetrospectiveRestatement" text COLLATE pg_catalog."default", '
+            '"NumberOfIssuedAndOutstandingSharesAtTheEndOfFiscalYearIncluding" text COLLATE pg_catalog."default", '
+            '"NumberOfTreasuryStockAtTheEndOfFiscalYear" text COLLATE pg_catalog."default", '
+            '"AverageNumberOfShares" text COLLATE pg_catalog."default", '
+            '"NonConsolidatedNetSales" text COLLATE pg_catalog."default", '
+            '"NonConsolidatedOperatingProfit" text COLLATE pg_catalog."default", '
+            '"NonConsolidatedOrdinaryProfit" text COLLATE pg_catalog."default", '
+            '"NonConsolidatedProfit" text COLLATE pg_catalog."default", '
+            '"NonConsolidatedEarningsPerShare" text COLLATE pg_catalog."default", '
+            '"NonConsolidatedTotalAssets" text COLLATE pg_catalog."default", '
+            '"NonConsolidatedEquity" text COLLATE pg_catalog."default", '
+            '"NonConsolidatedEquityToAssetRatio" text COLLATE pg_catalog."default", '
+            '"NonConsolidatedBookValuePerShare" text COLLATE pg_catalog."default", '
+            '"ForecastNonConsolidatedNetSales2ndQuarter" text COLLATE pg_catalog."default", '
+            '"ForecastNonConsolidatedOperatingProfit2ndQuarter" text COLLATE pg_catalog."default", '
+            '"ForecastNonConsolidatedOrdinaryProfit2ndQuarter" text COLLATE pg_catalog."default", '
+            '"ForecastNonConsolidatedProfit2ndQuarter" text COLLATE pg_catalog."default", '
+            '"ForecastNonConsolidatedEarningsPerShare2ndQuarter" text COLLATE pg_catalog."default", '
+            '"NextYearForecastNonConsolidatedNetSales2ndQuarter" text COLLATE pg_catalog."default", '
+            '"NextYearForecastNonConsolidatedOperatingProfit2ndQuarter" text COLLATE pg_catalog."default", '
+            '"NextYearForecastNonConsolidatedOrdinaryProfit2ndQuarter" text COLLATE pg_catalog."default", '
+            '"NextYearForecastNonConsolidatedProfit2ndQuarter" text COLLATE pg_catalog."default", '
+            '"NextYearForecastNonConsolidatedEarningsPerShare2ndQuarter" text COLLATE pg_catalog."default", '
+            '"ForecastNonConsolidatedNetSales" text COLLATE pg_catalog."default", '
+            '"ForecastNonConsolidatedOperatingProfit" text COLLATE pg_catalog."default", '
+            '"ForecastNonConsolidatedOrdinaryProfit" text COLLATE pg_catalog."default", '
+            '"ForecastNonConsolidatedProfit" text COLLATE pg_catalog."default", '
+            '"ForecastNonConsolidatedEarningsPerShare" text COLLATE pg_catalog."default", '
+            '"NextYearForecastNonConsolidatedNetSales" text COLLATE pg_catalog."default", '
+            '"NextYearForecastNonConsolidatedOperatingProfit" text COLLATE pg_catalog."default", '
+            '"NextYearForecastNonConsolidatedOrdinaryProfit" text COLLATE pg_catalog."default", '
+            '"NextYearForecastNonConsolidatedProfit" text COLLATE pg_catalog."default", '
+            '"NextYearForecastNonConsolidatedEarningsPerShare" text COLLATE pg_catalog."default", '
+            "CONSTRAINT fins_pkey PRIMARY KEY (id), "
+            "CONSTRAINT fins_company_fkey FOREIGN KEY (company) "
+            "REFERENCES public.company (id) MATCH SIMPLE "
+            "ON UPDATE NO ACTION "
+            "ON DELETE NO ACTION "
+            "NOT VALID "
+            ") "
+        )
+        self.db.post(sql)
+
+    def insert_fins_table(self):
+        # finans = self.jq.get_fins_statements(code=code)
+        company = self.sql.get_table("company")
+        self.sql.insert_fins("72030")
+        # company["code"].apply(lambda code: self.sql.insert_fins(code))
+        pass
+
     def make_table(self):
         self.make_market_table()
         self.make_indices_table()
@@ -713,6 +844,8 @@ class InitDB:
         self.make_date_table()
         self.make_trades_spec_table()
         self.make_margin_table()
+        # 先にテーブルを作成すると、カラムが全一致していないとエラーになるため使わない
+        self.make_fins_table()
 
     def init_table(self):
         self.init_market_table()
@@ -724,10 +857,13 @@ class InitDB:
         self.init_company_and_indices_table()
         self.init_sid_date_table()
         self.insert_trades_spec_table()
+        self.insert_fins_table()
 
 
 init = InitDB()
 id = init.sql.get_company_id(72030)
+init.make_fins_table()
+init.insert_fins_table()
 print(id)
 # init.init_price_table()
 # init.make_margin_table()

@@ -80,6 +80,31 @@ class SQL:
         except Exception as e:
             print(f"Error insert_price():{e}")
 
+    def insert_fins(self, code):
+        try:
+            tmp = self.jq.get_fins_statements(code=code)
+            df = pd.DataFrame(tmp)
+            if len(df) == 0:
+                return
+
+            company_code = self.get_company_id(code)
+            df["company"] = company_code
+            df = df.rename(
+                columns={
+                    "DisclosedDate": "date",
+                }
+            )
+            df = df.drop(["LocalCode", "DisclosedTime"], axis=1)
+            df["date"] = pd.to_datetime(df["date"]).dt.date
+            columns = df.columns
+            columns = columns.drop("company")
+            columns = columns.insert(0, "company")
+            df = df.reindex(columns=columns)
+
+            self.db.post_df(df, "fins")
+        except Exception as e:
+            print(f"Error insert_price():{e}")
+
     # 未確認
     def insert_margin(self, code):
         try:

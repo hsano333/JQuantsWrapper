@@ -1,6 +1,6 @@
 import os
 
-from .model.iris.manager import BaseManager
+from .model.jstocks_boolean.manager import JStocksManagerBoolean
 
 
 from torch.utils.tensorboard import SummaryWriter
@@ -35,7 +35,7 @@ class MyTorch:
         return self.board_log_path
 
     def __init__(self, save_path="save", continue_epoch=False):
-        self.manager = BaseManager()
+        self.manager = JStocksManagerBoolean()
         self.dataset = self.manager.get_dataset()
         # self.model = manager.get_model()
         tmp_model = self.manager.get_model()
