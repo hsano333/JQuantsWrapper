@@ -780,7 +780,7 @@ class InitDB:
             '"ChangesBasedOnRevisionsOfAccountingStandard" boolean , '
             '"ChangesOtherThanOnesBasedOnRevisionsOfAccountingStandard" boolean , '
             '"ChangesInAccountingEstimates" boolean , '
-            '"RetrospectiveRestatement" bigint , '
+            '"RetrospectiveRestatement" boolean , '
             '"NumberOfIssuedAndOutstandingSharesAtTheEndOfFiscalYearIncluding" bigint , '
             '"NumberOfTreasuryStockAtTheEndOfFiscalYear" bigint , '
             '"AverageNumberOfShares" bigint , '
@@ -826,7 +826,15 @@ class InitDB:
     def insert_fins_table(self):
         # finans = self.jq.get_fins_statements(code=code)
         company = self.sql.get_table("company")
-        self.sql.insert_fins("72030")
+        # self.sql.insert_fins("72030")
+        self.sql.insert_fins("13010")
+        self.sql.insert_fins("30230")
+        self.sql.insert_fins("30420")
+        self.sql.insert_fins("47680")
+        self.sql.insert_fins("47680")
+        self.sql.insert_fins("69200")
+        self.sql.insert_fins("69200")
+        self.sql.insert_fins("90640")
         # company["code"].apply(lambda code: self.sql.insert_fins(code))
         pass
 
@@ -862,7 +870,7 @@ class InitDB:
 
 init = InitDB()
 id = init.sql.get_company_id(72030)
-# init.make_fins_table()
+init.make_fins_table()
 init.insert_fins_table()
 print(id)
 # init.init_price_table()

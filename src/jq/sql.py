@@ -53,6 +53,8 @@ class SQL:
     def __init__(self, db, jq):
         self.db = db
         self.jq = jq
+        pd.set_option("future.no_silent_downcasting", True)
+
         # self.db = DB()
         # self.jq = JQuantsWrapper()
 
@@ -101,6 +103,9 @@ class SQL:
             columns = columns.insert(0, "company")
             df = df.reindex(columns=columns)
             df = df.replace("", pd.NA)
+            # df = df.replace("false", False)
+            # df = df.replace("true", True)
+            # pd.set_option("future.no_silent_downcasting", True)
 
             self.db.post_df(df, "fins")
         except Exception as e:
