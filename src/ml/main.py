@@ -1,6 +1,11 @@
 import os
+import importlib
 
-from .model.jstocks_boolean.manager import JStocksManagerBoolean
+# modelの切り替え
+from .model.jstocks_boolean.manager import BaseManager
+import ml.model.jstocks_boolean.manager
+
+# from .model.iris.manager import BaseManager
 
 
 from torch.utils.tensorboard import SummaryWriter
@@ -21,13 +26,15 @@ NUM_WORKERS = 4
 
 torch._dynamo.config.suppress_errors = True
 
+# from model.jstocks_boolean.manager import manager
+
+# importlib.reload(ml.model.jstocks_boolean.manager)
+
+
 # 精度をわずかに下げて、計算速度を向上させる
 torch.set_float32_matmul_precision("high")
 # 進捗を表示する間隔(10なら10回学習ごとに一度経過を出力)
 DISPLAY_STEP = 10
-
-
-METRICS_SIZE = 3
 
 
 class MyTorch:
@@ -35,7 +42,7 @@ class MyTorch:
         return self.board_log_path
 
     def __init__(self, save_path="save", continue_epoch=False):
-        self.manager = JStocksManagerBoolean()
+        self.manager = BaseManager()
         self.dataset = self.manager.get_dataset()
         # self.model = manager.get_model()
         tmp_model = self.manager.get_model()
@@ -69,7 +76,8 @@ class MyTorch:
         self.model = torch.compile(tmp_model.to(self.device))
 
         # self.optimizer = optim.Adam(net.parameters())
-        self.optimizer = optim.Adam(self.model.parameters())
+        self.optimizer = self.manager.get_optimizer()
+        # optim.Adam(self.model.parameters())
 
         if continue_epoch and os.path.isfile(self.save_tmp_model_path):
             checkpoint = torch.load(self.save_tmp_model_path, weights_only=True)
@@ -184,7 +192,8 @@ class MyTorch:
 
     def do_training(self, ndx, epoch, batch):
         self.model.train()
-        trainMetrics = torch.zeros(METRICS_SIZE, len(batch.dataset), device=self.device)
+        metrics_size = self.manager.get_metrics_size()
+        trainMetrics = torch.zeros(metrics_size, len(batch.dataset), device=self.device)
         batch_iter = self.enumerate_with_estimate(
             iter=batch, text=f"E{ndx}/{epoch} Training:", ndx=ndx
         )
@@ -206,8 +215,9 @@ class MyTorch:
     def do_validation(self, ndx, epoch, batch):
         with torch.no_grad():
             self.model.eval()
+            metrics_size = self.manager.get_metrics_size()
             valMetrics = torch.zeros(
-                METRICS_SIZE, len(batch.dataset), device=self.device
+                metrics_size, len(batch.dataset), device=self.device
             )
             batch_iter = self.enumerate_with_estimate(
                 iter=batch, text=f"E{ndx}/{epoch} Validation:", ndx=ndx
@@ -228,7 +238,8 @@ class MyTorch:
         size = len(label)
         with torch.no_grad():
             self.model.eval()
-            evalMetrics = torch.zeros(METRICS_SIZE, size, device=self.device)
+            metrics_size = self.manager.get_metrics_size()
+            evalMetrics = torch.zeros(metrics_size, size, device=self.device)
 
             self.manager.compute_batch_loss(
                 self.model,
@@ -262,6 +273,7 @@ class MyTorch:
         )
 
     def main(self):
+        importlib.reload(ml.model.jstocks_boolean.manager)
         ndx = 0
         epoch = 101
         start_at = time.time()
@@ -269,8 +281,12 @@ class MyTorch:
         for ndx in range(self.start_epoch, epoch):
             trnMetrics = self.do_training(ndx, epoch, self.train_batch)
             valMetrics = self.do_validation(ndx, epoch, self.val_batch)
-            self.manager.log_metrics(ndx, "trn", trnMetrics, self.writer)
+            trn_score = self.manager.log_metrics(ndx, "trn", trnMetrics, self.writer)
             score = self.manager.log_metrics(ndx, "val", valMetrics, self.writer)
+            if ndx % 10 == 0:
+                print(f"Trn:score={trn_score}, ")
+                print(f"Val:score={score}, ")
+                print(f"Val:best_score={self.best_score}, ")
             if score > self.best_score and (ndx > epoch / 5) and (score > 50):
                 self.best_score = score
                 self.save_model(ndx, score, self.save_tmp_model_path)

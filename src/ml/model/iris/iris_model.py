@@ -25,18 +25,6 @@ class IrisModel(nn.Module):
         self.linear2 = torch.nn.Linear(H, D_out)
         self.relu = torch.nn.ReLU(inplace=False)
 
-        self.container = nn.Sequential(
-            torch.nn.Linear(D_in, H),
-            self.relu,
-            torch.nn.Linear(H, 2),
-            self.relu,
-            nn.Dropout(p=0.5),
-            torch.nn.Linear(2, D_out),
-        )
-
-        # self.compute_batch_loss = torch.compile(self.compute_batch_loss_pre_compile)
-
-    # @torch.compile
     def forward(self, x):
         x = F.relu(self.linear1(x))
         x = self.linear2(x)

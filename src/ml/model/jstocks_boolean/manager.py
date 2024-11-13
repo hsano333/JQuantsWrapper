@@ -1,14 +1,27 @@
 import os
+import importlib
 import torch
 import torch.nn as nn
+from torch import optim
 from enum import IntEnum
 
-from .dataset import TestIris
-from .model import IrisModel
+from .dataset import JStocksDataset
+from .model import JStocksModel
 
-METRICS_LABEL_NDX = 0
-METRICS_PRED_NDX = 1
-METRICS_LOSS_NDX = 2
+# import .model
+
+# import ml.model.jstocks_boolean.model
+
+# importlib.reload(ml.model.jstocks_boolean.model)
+
+METRICS_LABEL1_NDX = 0
+METRICS_LABEL2_NDX = 1
+METRICS_PRED1_NDX = 2
+METRICS_PRED2_NDX = 3
+METRICS_LOSS_NDX = 4
+METRICS_SIZE = 5
+# METRICS_LOSS1_NDX = 4
+# METRICS_LOSS2_NDX = 5
 
 
 class Diff(IntEnum):
@@ -17,19 +30,24 @@ class Diff(IntEnum):
     POS = 2
 
 
-class JStocksManagerBoolean:
+class BaseManager:
     def __init__(self):
-        self.dataset = TestIris()
-        self.model = IrisModel()
+        self.dataset = JStocksDataset()
+        self.model = JStocksModel()
 
         # 損失関数
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.BCEWithLogitsLoss()
 
     def get_dataset(self):
         return self.dataset
 
     def get_model(self):
         return self.model
+
+    def get_optimizer(self):
+        return optim.Adam(
+            self.model.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-8
+        )
 
     def get_path(self):
         return os.path.dirname(__file__)
@@ -50,7 +68,6 @@ class JStocksManagerBoolean:
 
         loss = self.criterion(prediction, label)
 
-        # print(f"{batch_ndx=}, {batch_max_size=}, {label.size(0)=}")
         start_ndx = batch_ndx * batch_max_size
         end_ndx = start_ndx + label.size(0)
 
@@ -58,68 +75,108 @@ class JStocksManagerBoolean:
             # print(f"{label=}")
             # print(f"{prediction=}")
             tmp_prediction = prediction.detach()
-            result_prediction = torch.max(tmp_prediction, 1)[1]
-            metrics[METRICS_LABEL_NDX, start_ndx:end_ndx] = label.detach()
-            metrics[METRICS_PRED_NDX, start_ndx:end_ndx] = result_prediction
+            # result_prediction = torch.max(tmp_prediction, 1)[1]
+            metrics[METRICS_LABEL1_NDX : METRICS_LABEL2_NDX + 1, start_ndx:end_ndx] = (
+                label[:, [0, 1]].detach().T
+            )
+            # metrics[METRICS_LABEL2_NDX, start_ndx:end_ndx] = label[:, 1].detach()
+            metrics[METRICS_PRED1_NDX : METRICS_PRED2_NDX + 1, start_ndx:end_ndx] = (
+                tmp_prediction[:, [0, 1]].T
+            )
+            # metrics[METRICS_PRED2_NDX, start_ndx:end_ndx] = tmp_prediction[:, 1]
             metrics[METRICS_LOSS_NDX, start_ndx:end_ndx] = loss.detach()
+            # metrics[METRICS_LOSS1_NDX, start_ndx:end_ndx] = loss[:, 0].detach()
+            # metrics[METRICS_LOSS2_NDX, start_ndx:end_ndx] = loss[:, 1].detach()
 
         return loss
 
-    def evaluate(self, metrics):
-        neg_predict = metrics[:, metrics[METRICS_PRED_NDX] == Diff.NEG]
-        zero_predict = metrics[:, metrics[METRICS_PRED_NDX] == Diff.ZERO]
-        pos_predict = metrics[:, metrics[METRICS_PRED_NDX] == Diff.POS]
+    def evaluate(self, metrics_base):
+        threshold_val = 0.5
+        threshold_label_val = 0.5
+
+        tmp1 = metrics_base[:, metrics_base[METRICS_PRED1_NDX] >= 0]
+        tmp11 = metrics_base[:, metrics_base[METRICS_PRED1_NDX] < 0]
+        tmp2 = metrics_base[:, metrics_base[METRICS_PRED2_NDX] >= 0]
+        tmp22 = metrics_base[:, metrics_base[METRICS_PRED2_NDX] < 0]
+        metrics = tmp1[:, tmp1[METRICS_PRED2_NDX] < 0]
+        metrics2 = tmp2[:, tmp2[METRICS_PRED1_NDX] < 0]
+        # tmp_bool = tmp1 ^ tmp2
+        # metrics = metrics_base[:, tmp_bool]
+
+        print(f"{metrics_base.shape=}")
+        print(f"{tmp1.shape=}")
+        print(f"{tmp11.shape=}")
+        print(f"{tmp2.shape=}")
+        print(f"{tmp22.shape=}")
+        print(f"{metrics.shape=}")
+        print(f"{metrics2.shape=}")
+        # print(f"{metrics=}")
+        # print(f"{metrics2=}")
+        # print(f"{metrics_base[METRICS_PRED1_NDX]=}")
+        # print(f"{metrics_base[METRICS_PRED2_NDX]=}")
+
+        rised_true_predict = metrics[:, metrics[METRICS_PRED1_NDX] >= threshold_val]
+        rised_false_predict = metrics[:, metrics[METRICS_PRED1_NDX] < threshold_val]
+        falled_true_predict = metrics[:, metrics[METRICS_PRED2_NDX] >= threshold_val]
+        falled_false_predict = metrics[:, metrics[METRICS_PRED2_NDX] < threshold_val]
 
         sample_cnt = metrics.shape[1]
 
-        neg_num = neg_predict.shape[1]
-        zero_num = zero_predict.shape[1]
-        pos_num = pos_predict.shape[1]
+        rised_true_num = rised_true_predict.shape[1]
+        rised_false_num = rised_false_predict.shape[1]
+        falled_true_num = falled_true_predict.shape[1]
+        falled_false_num = falled_false_predict.shape[1]
 
-        neg_ng_pos = neg_predict[:, neg_predict[METRICS_LABEL_NDX] == Diff.POS]
-        neg_ng_zero = neg_predict[:, neg_predict[METRICS_LABEL_NDX] == Diff.ZERO]
-        neg_ok = neg_predict[:, neg_predict[METRICS_LABEL_NDX] == Diff.NEG]
-        neg_ng_pos_num = neg_ng_pos.shape[1]
-        neg_ng_zero_num = neg_ng_zero.shape[1]
-        neg_ok_num = neg_ok.shape[1]
+        rised_true_ok = rised_true_predict[
+            :, rised_true_predict[METRICS_LABEL1_NDX] >= threshold_label_val
+        ]
+        rised_false_ok = rised_false_predict[
+            :, rised_false_predict[METRICS_LABEL1_NDX] < threshold_label_val
+        ]
+        falled_true_ok = falled_true_predict[
+            :, falled_true_predict[METRICS_LABEL2_NDX] >= threshold_label_val
+        ]
+        falled_false_ok = falled_false_predict[
+            :, falled_false_predict[METRICS_LABEL2_NDX] < threshold_label_val
+        ]
 
-        neg_ratio1 = 100 * neg_ok_num / neg_num if neg_num > 0 else 0
-        neg_ratio2 = (
-            100 * (neg_ok_num + neg_ng_zero_num) / neg_num if neg_num > 0 else 0
+        rised_true_ok_num = rised_true_ok.shape[1]
+        rised_false_ok_num = rised_false_ok.shape[1]
+        falled_true_ok_num = falled_true_ok.shape[1]
+        falled_false_ok_num = falled_false_ok.shape[1]
+
+        rised_f1 = (
+            (
+                100
+                * (rised_true_ok_num + rised_false_ok_num)
+                / (rised_true_num + rised_false_num)
+            )
+            if (rised_true_num + rised_false_num) > 0
+            else 0
         )
-
-        zero_ng_pos = zero_predict[:, zero_predict[METRICS_LABEL_NDX] == Diff.POS]
-        zero_ng_neg = zero_predict[:, zero_predict[METRICS_LABEL_NDX] == Diff.NEG]
-        zero_ok = zero_predict[:, zero_predict[METRICS_LABEL_NDX] == Diff.ZERO]
-        zero_ok_num = zero_ok.shape[1]
-        zero_ratio = 0
-        zero_ratio = 100 * zero_ok_num / zero_num if zero_num > 0 else 0
-        # zero_ratio2 = (zero_ok + neg_ng_zero) / sample_cnt
-
-        pos_ng_neg = pos_predict[:, pos_predict[METRICS_LABEL_NDX] == Diff.NEG]
-        pos_ng_zero = pos_predict[:, pos_predict[METRICS_LABEL_NDX] == Diff.ZERO]
-        pos_ok = pos_predict[:, pos_predict[METRICS_LABEL_NDX] == Diff.POS]
-        pos_ng_zero_num = pos_ng_zero.shape[1]
-        pos_ok_num = pos_ok.shape[1]
-
-        pos_ratio1 = 100 * pos_ok_num / pos_num if pos_num > 0 else 0
-        pos_ratio2 = (
-            100 * (pos_ok_num + pos_ng_zero_num) / pos_num if pos_num > 0 else 0
+        falled_f1 = (
+            (
+                100
+                * (falled_true_ok_num + falled_false_ok_num)
+                / (falled_true_num + falled_false_num)
+            )
+            if (falled_true_num + falled_false_num) > 0
+            else 0
         )
-
-        all_ok_cnt = zero_ok_num + pos_ok_num + neg_ok_num
-        all_ratio = 100 * all_ok_cnt / sample_cnt
-        ## writer.add_scalar(mode_str + ":NG", neg_predict, epoch_ndx)
-        # writer.add_scalar(mode_str + ":ZERO", zero_predict, epoch_ndx)
 
         return {
-            "NEG1": neg_ratio1,
-            "NEG2": neg_ratio2,
-            "ZERO": zero_ratio,
-            "POS1": pos_ratio1,
-            "POS2": pos_ratio2,
-            "ALL": all_ratio,
+            "rised_f1": rised_f1,
+            "falled_f1": falled_f1,
+            "ALL": (rised_f1 + falled_f1) / 2,
+            "rised_true_num": rised_true_num,
+            "rised_false_predict": rised_false_num,
+            "metrics.shape": metrics.shape[1],
+            "rised_true_ok_num": rised_true_ok_num,
+            "rised_false_ok_num": rised_false_ok_num,
         }
+
+    def get_metrics_size(self):
+        return METRICS_SIZE
 
     def log_metrics(self, epoch_ndx, mode_str, metrics, writer):
         results = self.evaluate(metrics)

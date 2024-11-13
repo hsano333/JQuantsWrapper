@@ -3,7 +3,7 @@ import pandas as pd
 # from db.mydb import DB
 # from .jquants import JQuantsWrapper
 
-value_step = {
+LimitStep = {
     100: 30,
     200: 50,
     500: 80,
@@ -42,8 +42,7 @@ value_step = {
 
 
 def get_limit(val):
-    pre = value_step[100]
-    for key, value in value_step.items():
+    for key, value in LimitStep.items():
         if val < key:
             return value
     return 0

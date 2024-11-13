@@ -1,6 +1,8 @@
 from sklearn.datasets import load_iris
 from torch.utils.data import Dataset
+from jq.sql import get_limit
 import torch
+import numpy as np
 import pandas as pd
 
 
@@ -27,14 +29,31 @@ def change_turnover(val):
 
 
 # 前日比
-def change_price(val):
+def change_price(val, adj):
     tmp = val["tmp"]
     if val["limit"] == 0:
         return val
 
+    adj_val = 1
+    date = val["date"]
+
+    dict_data = dict(zip(adj["date"], adj["adj"]))
+    for adj_date, adj_value in dict_data.items():
+        if date > adj_date:
+            break
+        adj_val *= adj_value
+    if adj_val != 1:
+        val["open"] = val["open"] / adj_val
+        val["high"] = val["high"] / adj_val
+        val["low"] = val["low"] / adj_val
+        val["close"] = val["close"] / adj_val
+        val["volume"] = val["volume"] / adj_val
+        tmp = tmp / adj_val
+        val["limit"] = get_limit(val["volume"] / adj_val)
+
     # たぶん後で消す 判定用のlabel todo
-    val["is_rised"] = 100 * (val["close"] - tmp) / tmp >= 1
-    val["is_falled"] = 100 * (val["close"] - tmp) / tmp <= -1
+    val["is_rised"] = (100 * (val["close"] - tmp) / tmp) >= 1
+    val["is_falled"] = (100 * (val["close"] - tmp) / tmp) <= -1
 
     val["high"] = val["high"] - tmp
     val["low"] = val["low"] - tmp
@@ -102,34 +121,37 @@ class JStocksDataset(Dataset):
         code = 72030
         db = DB()
         jq = JQuantsWrapper()
-        sql = SQL(self.db, self.jq)
+        sql = SQL(db, jq)
 
         id = sql.get_company_id(code)
         where = f"where company = {id}"
         prices = sql.get_table("price", where)
+
         prices["turnover"] = prices.apply(change_turnover, axis=1)
         prices["tmp"] = prices["close"].shift(1)
         # prices["is_rised"] = prices[prices["close"] - prices["tmp"]]
-        prices = prices.apply(change_price, axis=1)
+        adj = prices[prices["adj"] != 1]
+        print(f"{prices=}")
+        print(f"{adj=}")
+        prices = prices.apply(change_price, axis=1, adj=adj)
 
         prices = add_rolling(prices, 25)
         prices = add_rolling(prices, 75)
         prices = add_rolling(prices, 200)
         prices = prices.apply(change_rolling, axis=1)
 
-        # prices = prices.shift(1)["close"].apply(get_limit)
-        # prices = prices.apply(change_price, axis=1)
-
         # 最後に不要なカラムを削除
         prices = prices.drop(
             ["id", "date", "company", "upper_l", "low_l", "adj", "limit", "tmp"], axis=1
         )
         prices = prices[200:]
-        tmp_data = prices.drop(["is_rised", "is_falled"], axis=1)
         tmp_label = prices[["is_rised", "is_falled"]]
+        prices = prices.drop(["is_rised", "is_falled"], axis=1)
 
-        self.data = torch.tensor(tmp_data[: -self.TEST_SIZE], dtype=torch.float32)
-        self.label = torch.tensor(tmp_label.target[: -self.TEST_SIZE])
+        self.data = torch.tensor(prices[: -self.TEST_SIZE].values.astype(np.float32))
+        self.label = torch.tensor(
+            tmp_label.iloc[: -self.TEST_SIZE].values.astype(np.float32)
+        )
 
     def __len__(self):
         return len(self.data)
