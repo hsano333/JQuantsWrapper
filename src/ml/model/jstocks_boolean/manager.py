@@ -1,6 +1,7 @@
 import os
 import importlib
 import torch
+import torchvision
 import torch.nn as nn
 from torch import optim
 from enum import IntEnum
@@ -18,8 +19,9 @@ METRICS_LABEL1_NDX = 0
 METRICS_LABEL2_NDX = 1
 METRICS_PRED1_NDX = 2
 METRICS_PRED2_NDX = 3
-METRICS_LOSS_NDX = 4
-METRICS_SIZE = 5
+METRICS_LOSS1_NDX = 4
+METRICS_LOSS2_NDX = 5
+METRICS_SIZE = 6
 # METRICS_LOSS1_NDX = 4
 # METRICS_LOSS2_NDX = 5
 
@@ -38,7 +40,8 @@ class BaseManager:
         # 損失関数
         # weights = torch.tensor([0.3, 0.7])
         # self.criterion = nn.BCEWithLogitsLoss(weight=weights)
-        self.criterion = nn.BCEWithLogitsLoss()
+        # self.criterion = nn.BCEWithLogitsLoss()
+        self.criterion = torchvision.ops.sigmoid_focal_loss
 
     def get_dataset(self):
         return self.dataset
@@ -68,29 +71,44 @@ class BaseManager:
         label = label.to(device)
         prediction = model(data)
 
-        loss = self.criterion(prediction, label)
+        # print(f"{prediction.shape=}")
+        # print(f"{label.shape=}")
+        # print(f"{label[:,0].shape=}")
+        loss = self.criterion(inputs=prediction, targets=label, alpha=0.3)
+        # print(f"{loss=}")
+        # loss1 = self.criterion(inputs=prediction, targets=label[:, 0], alpha=0.1)
+        # loss2 = self.criterion(inputs=prediction, targets=label[:, 1], alpha=0.1)
+        # print(f"{loss.shape=}")
+        # print(f"{loss2=}")
+        # loss = (loss1 + loss2) / 2
 
         start_ndx = batch_ndx * batch_max_size
         end_ndx = start_ndx + label.size(0)
 
         with torch.no_grad():
-            # print(f"{label=}")
-            # print(f"{prediction=}")
             tmp_prediction = prediction.detach()
-            # result_prediction = torch.max(tmp_prediction, 1)[1]
             metrics[METRICS_LABEL1_NDX : METRICS_LABEL2_NDX + 1, start_ndx:end_ndx] = (
                 label[:, [0, 1]].detach().T
             )
-            # metrics[METRICS_LABEL2_NDX, start_ndx:end_ndx] = label[:, 1].detach()
             metrics[METRICS_PRED1_NDX : METRICS_PRED2_NDX + 1, start_ndx:end_ndx] = (
                 tmp_prediction[:, [0, 1]].T
             )
-            # metrics[METRICS_PRED2_NDX, start_ndx:end_ndx] = tmp_prediction[:, 1]
-            metrics[METRICS_LOSS_NDX, start_ndx:end_ndx] = loss.detach()
+            metrics[METRICS_LOSS1_NDX : METRICS_LOSS2_NDX + 1, start_ndx:end_ndx] = (
+                loss.detach().T
+            )
+            ratio1 = len(tmp_prediction[:, 1] < 0.1) / tmp_prediction.shape[0]
+            ratio2 = len(tmp_prediction[:, 1] < 0.1) / tmp_prediction.shape[0]
+            offset = 1
+            if ratio1 >= 0.9 or ratio1 <= 0.1:
+                offset = offset * 2
+            # if ratio2 >= 0.9 or ratio2 <= 0.1:
+            # offset = offset * 3
+            print(f"{ratio1=}")
             # metrics[METRICS_LOSS1_NDX, start_ndx:end_ndx] = loss[:, 0].detach()
             # metrics[METRICS_LOSS2_NDX, start_ndx:end_ndx] = loss[:, 1].detach()
 
-        return loss
+        # return loss * offset
+        return torch.sum(loss) * offset / 2
 
     def evaluate(self, metrics_base):
         threshold_val = 0.5

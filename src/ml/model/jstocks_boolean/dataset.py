@@ -24,7 +24,7 @@ def change_turnover(val):
     low_turnover = low * volume
     max_turnover = high_turnover - low_turnover
     base_turnover = turnover - low_turnover
-    calc_turnover = 100 * base_turnover / max_turnover
+    calc_turnover = base_turnover / max_turnover
     return calc_turnover
 
 
@@ -52,8 +52,8 @@ def change_price(val, adj):
         val["limit"] = get_limit(val["volume"] / adj_val)
 
     # たぶん後で消す 判定用のlabel todo
-    val["is_rised"] = (100 * (val["close"] - tmp) / tmp) >= 1
-    val["is_falled"] = (100 * (val["close"] - tmp) / tmp) <= -1
+    val["is_rised"] = ((val["close"] - tmp) / tmp) >= 1
+    val["is_falled"] = ((val["close"] - tmp) / tmp) <= -1
 
     val["high"] = val["high"] - tmp
     val["low"] = val["low"] - tmp
@@ -65,10 +65,10 @@ def change_price(val, adj):
     val["is_open_positive"] = val["open"] >= 0
     val["is_close_positive"] = val["close"] >= 0
 
-    val["high"] = 100 * abs(val["high"]) / val["limit"]
-    val["low"] = 100 * abs(val["low"]) / val["limit"]
-    val["open"] = 100 * abs(val["open"]) / val["limit"]
-    val["close"] = 100 * abs(val["close"]) / val["limit"]
+    val["high"] = abs(val["high"]) / val["limit"]
+    val["low"] = abs(val["low"]) / val["limit"]
+    val["open"] = abs(val["open"]) / val["limit"]
+    val["close"] = abs(val["close"]) / val["limit"]
 
     return val
 
@@ -98,17 +98,17 @@ def change_rolling(val):
     diff75 = val["max75"] - val["min75"]
     diff200 = val["max200"] - val["min200"]
 
-    val["avg25"] = 100 * (abs(val["avg25"])) / diff25
-    val["avg75"] = 100 * (abs(val["avg75"])) / diff75
-    val["avg200"] = 100 * (abs(val["avg200"])) / diff200
+    val["avg25"] = (abs(val["avg25"])) / diff25
+    val["avg75"] = (abs(val["avg75"])) / diff75
+    val["avg200"] = (abs(val["avg200"])) / diff200
 
-    val["max25"] = 100 * (val["max25"] - tmp) / diff25
-    val["max75"] = 100 * (val["max75"] - tmp) / diff75
-    val["max200"] = 100 * (val["max200"] - tmp) / diff200
+    val["max25"] = (val["max25"] - tmp) / diff25
+    val["max75"] = (val["max75"] - tmp) / diff75
+    val["max200"] = (val["max200"] - tmp) / diff200
 
-    val["min25"] = 100 * (tmp - val["min25"]) / diff25
-    val["min75"] = 100 * (tmp - val["min75"]) / diff75
-    val["min200"] = 100 * (tmp - val["min200"]) / diff200
+    val["min25"] = (tmp - val["min25"]) / diff25
+    val["min75"] = (tmp - val["min75"]) / diff75
+    val["min200"] = (tmp - val["min200"]) / diff200
 
     return val
 
@@ -131,8 +131,8 @@ class JStocksDataset(Dataset):
         prices["tmp"] = prices["close"].shift(1)
         # prices["is_rised"] = prices[prices["close"] - prices["tmp"]]
         adj = prices[prices["adj"] != 1]
-        print(f"{prices=}")
-        print(f"{adj=}")
+        # print(f"{prices=}")
+        # print(f"{adj=}")
         prices = prices.apply(change_price, axis=1, adj=adj)
 
         prices = add_rolling(prices, 25)
@@ -144,14 +144,32 @@ class JStocksDataset(Dataset):
         prices = prices.drop(
             ["id", "date", "company", "upper_l", "low_l", "adj", "limit", "tmp"], axis=1
         )
+
+        condition = prices["is_rised"] < 0.01
+        target_indices = prices[condition].index
+
+        np.random.seed(42)  # 再現性のために乱数シードを設定（必要に応じて変更）
+        half_indices = np.random.choice(
+            target_indices, size=len(target_indices) // 2, replace=False
+        )
+
+        prices = prices.drop(half_indices).reset_index(drop=True)
+
+        print(f"{prices=}")
         prices = prices[200:]
         tmp_label = prices[["is_rised", "is_falled"]]
+        # tmp_label = prices["is_rised"]
         prices = prices.drop(["is_rised", "is_falled"], axis=1)
+        prices["volume"] = (prices["volume"] - prices["volume"].mean()) / prices[
+            "volume"
+        ].std()
 
         self.data = torch.tensor(prices[: -self.TEST_SIZE].values.astype(np.float32))
         self.label = torch.tensor(
             tmp_label.iloc[: -self.TEST_SIZE].values.astype(np.float32)
         )
+        print("f{self.label.shape=}")
+        print("f{self.label.shape=}")
 
     def __len__(self):
         return len(self.data)

@@ -21,7 +21,7 @@ import torch._dynamo
 import time
 import datetime
 
-BATCH_SIZE = 10
+BATCH_SIZE = 100
 NUM_WORKERS = 4
 
 torch._dynamo.config.suppress_errors = True
