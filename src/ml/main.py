@@ -2,7 +2,7 @@ import os
 import importlib
 
 # modelの切り替え
-from .model.jstocks_boolean.manager import BaseManager
+from ml.model.jstocks_boolean.manager import BaseManager
 import ml.model.jstocks_boolean.manager
 
 # from .model.iris.manager import BaseManager
@@ -71,11 +71,14 @@ class MyTorch:
         # self.device = torch.device("cpu")
         print(f"{self.device=}")
         # net = self.model.to(self.device)
+        # net = tmp_model.to(self.device)
         # self.model = tmp_model.to(self.device)
         # self.model = torch.compile(tmp_model.to(self.device))
         self.model = torch.compile(tmp_model.to(self.device))
 
         # self.optimizer = optim.Adam(net.parameters())
+        # self.optimizer = optim.Adam(self.model.parameters())
+        # self.optimizer = self.manager.get_optimizer(net)
         self.optimizer = self.manager.get_optimizer()
         # optim.Adam(self.model.parameters())
 

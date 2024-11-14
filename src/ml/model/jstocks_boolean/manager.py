@@ -36,6 +36,8 @@ class BaseManager:
         self.model = JStocksModel()
 
         # 損失関数
+        # weights = torch.tensor([0.3, 0.7])
+        # self.criterion = nn.BCEWithLogitsLoss(weight=weights)
         self.criterion = nn.BCEWithLogitsLoss()
 
     def get_dataset(self):
