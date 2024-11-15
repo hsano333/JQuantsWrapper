@@ -118,7 +118,7 @@ def change_rolling(val):
 
 
 class JStocksDataset(Dataset):
-    TEST_SIZE = 100
+    TEST_SIZE = 150
 
     def __init__(self):
         # iris = load_iris()
@@ -139,10 +139,10 @@ class JStocksDataset(Dataset):
         # print(f"{adj=}")
         prices = prices.apply(change_price, axis=1, adj=adj)
 
-        # prices = add_rolling(prices, 25)
-        # prices = add_rolling(prices, 75)
-        # prices = add_rolling(prices, 200)
-        # prices = prices.apply(change_rolling, axis=1)
+        prices = add_rolling(prices, 25)
+        prices = add_rolling(prices, 75)
+        prices = add_rolling(prices, 200)
+        prices = prices.apply(change_rolling, axis=1)
 
         # 最後に不要なカラムを削除
         prices = prices.drop(
@@ -182,7 +182,8 @@ class JStocksDataset(Dataset):
         self.label = torch.tensor(
             tmp_label.iloc[: -self.TEST_SIZE].values.astype(np.float32)
         )
-        print(f"{self.label.shape=}")
+        print(f"{prices.shape=}")
+        print(f"{self.data.shape=}")
         print(f"{self.label.shape=}")
 
     def __len__(self):
