@@ -58,8 +58,6 @@ class BaseManager:
         end_ndx = start_ndx + label.size(0)
 
         with torch.no_grad():
-            # print(f"{label=}")
-            # print(f"{prediction=}")
             tmp_prediction = prediction.detach()
             result_prediction = torch.max(tmp_prediction, 1)[1]
             metrics[METRICS_LABEL_NDX, start_ndx:end_ndx] = label.detach()

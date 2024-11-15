@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from enum import IntEnum
 
-D_in = 22
+D_in = 10
 H = 100
 D_out = 2
 METRICS_LABEL_NDX = 0

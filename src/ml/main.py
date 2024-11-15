@@ -21,14 +21,16 @@ import torch._dynamo
 import time
 import datetime
 
-BATCH_SIZE = 100
+
+# for reload
+import ml.model.jstocks_boolean.dataset as MyDataset
+import ml.model.jstocks_boolean.model as MyModel
+import ml.model.jstocks_boolean.manager as MyManager
+
+BATCH_SIZE = 30
 NUM_WORKERS = 4
 
 torch._dynamo.config.suppress_errors = True
-
-# from model.jstocks_boolean.manager import manager
-
-# importlib.reload(ml.model.jstocks_boolean.manager)
 
 
 # 精度をわずかに下げて、計算速度を向上させる
@@ -42,6 +44,8 @@ class MyTorch:
         return self.board_log_path
 
     def __init__(self, save_path="save", continue_epoch=False):
+        importlib.reload(MyDataset)
+
         self.manager = BaseManager()
         self.dataset = self.manager.get_dataset()
         # self.model = manager.get_model()
@@ -68,19 +72,8 @@ class MyTorch:
         )
         self.eval_data = self.dataset.get_eval_data()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # self.device = torch.device("cpu")
-        print(f"{self.device=}")
-        # net = self.model.to(self.device)
-        # net = tmp_model.to(self.device)
-        # self.model = tmp_model.to(self.device)
-        # self.model = torch.compile(tmp_model.to(self.device))
         self.model = torch.compile(tmp_model.to(self.device))
-
-        # self.optimizer = optim.Adam(net.parameters())
-        # self.optimizer = optim.Adam(self.model.parameters())
-        # self.optimizer = self.manager.get_optimizer(net)
         self.optimizer = self.manager.get_optimizer()
-        # optim.Adam(self.model.parameters())
 
         if continue_epoch and os.path.isfile(self.save_tmp_model_path):
             checkpoint = torch.load(self.save_tmp_model_path, weights_only=True)
@@ -95,7 +88,7 @@ class MyTorch:
             self.start_epoch = 0
 
         # self.compute_batch_loss_compiled = torch.compile(self.model.compute_batch_loss)
-        self.compute_batch_loss_compiled = self.manager.compute_batch_loss
+        # self.compute_batch_loss_compiled = self.manager.compute_batch_loss
 
     def enumerateWithEstimate(
         self,
@@ -202,7 +195,7 @@ class MyTorch:
         )
         for batch_ndx, data_label in batch_iter:
             self.optimizer.zero_grad()
-            self.loss = self.compute_batch_loss_compiled(
+            self.loss = self.manager.compute_batch_loss(
                 self.model,
                 batch_ndx,
                 data_label,
@@ -226,7 +219,7 @@ class MyTorch:
                 iter=batch, text=f"E{ndx}/{epoch} Validation:", ndx=ndx
             )
             for batch_ndx, data_label in batch_iter:
-                self.compute_batch_loss_compiled(
+                self.manager.compute_batch_loss(
                     self.model,
                     batch_ndx,
                     data_label,
@@ -276,7 +269,9 @@ class MyTorch:
         )
 
     def main(self):
-        importlib.reload(ml.model.jstocks_boolean.manager)
+        importlib.reload(MyModel)
+        importlib.reload(MyManager)
+
         ndx = 0
         epoch = 101
         start_at = time.time()

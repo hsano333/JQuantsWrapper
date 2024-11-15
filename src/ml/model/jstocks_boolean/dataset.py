@@ -32,6 +32,9 @@ def change_turnover(val):
 def change_price(val, adj):
     tmp = val["tmp"]
     if val["limit"] == 0:
+        val["is_rised"] = False
+        val["is_falled"] = False
+        val["is_zero"] = True
         return val
 
     adj_val = 1
@@ -51,9 +54,10 @@ def change_price(val, adj):
         tmp = tmp / adj_val
         val["limit"] = get_limit(val["volume"] / adj_val)
 
-    # たぶん後で消す 判定用のlabel todo
-    val["is_rised"] = ((val["close"] - tmp) / tmp) >= 1
-    val["is_falled"] = ((val["close"] - tmp) / tmp) <= -1
+    val["is_rised"] = ((val["close"] - tmp) / tmp) >= 0.01
+    val["is_falled"] = ((val["close"] - tmp) / tmp) <= -0.01
+    val["is_zero"] = (val["is_rised"] is False) & (val["is_falled"] is False)
+    # val["is_zero"] = val[(val["is_rised"] is False) & (val["is_falled"] is False)]
 
     val["high"] = val["high"] - tmp
     val["low"] = val["low"] - tmp
@@ -135,10 +139,10 @@ class JStocksDataset(Dataset):
         # print(f"{adj=}")
         prices = prices.apply(change_price, axis=1, adj=adj)
 
-        prices = add_rolling(prices, 25)
-        prices = add_rolling(prices, 75)
-        prices = add_rolling(prices, 200)
-        prices = prices.apply(change_rolling, axis=1)
+        # prices = add_rolling(prices, 25)
+        # prices = add_rolling(prices, 75)
+        # prices = add_rolling(prices, 200)
+        # prices = prices.apply(change_rolling, axis=1)
 
         # 最後に不要なカラムを削除
         prices = prices.drop(
@@ -156,10 +160,20 @@ class JStocksDataset(Dataset):
         prices = prices.drop(half_indices).reset_index(drop=True)
 
         print(f"{prices=}")
-        prices = prices[200:]
-        tmp_label = prices[["is_rised", "is_falled"]]
+        # prices = prices[200:]
+        # tmp_label = prices[201:, ["is_rised", "is_zero", "is_falled"]]
+        print(f"{prices.iloc[200:]=}")
+        tmp_label = prices.iloc[201:]
+        # tmp_label = tmp_label[["is_rised", "is_zero", "is_falled"]]
+        tmp_label = tmp_label[["is_rised", "is_zero", "is_falled"]]
+        print(f"{tmp_label=}")
+        tmp_label = tmp_label[~tmp_label["is_zero"]]
+        tmp_label = tmp_label[["is_rised", "is_falled"]]
+        # tmp_label = prices.iloc[201:, ["is_rised", "is_zero", "is_falled"]]
+        prices = prices.iloc[200:-1]
+        prices = prices[~prices["is_zero"]]
         # tmp_label = prices["is_rised"]
-        prices = prices.drop(["is_rised", "is_falled"], axis=1)
+        prices = prices.drop(["is_rised", "is_zero", "is_falled"], axis=1)
         prices["volume"] = (prices["volume"] - prices["volume"].mean()) / prices[
             "volume"
         ].std()
@@ -168,8 +182,8 @@ class JStocksDataset(Dataset):
         self.label = torch.tensor(
             tmp_label.iloc[: -self.TEST_SIZE].values.astype(np.float32)
         )
-        print("f{self.label.shape=}")
-        print("f{self.label.shape=}")
+        print(f"{self.label.shape=}")
+        print(f"{self.label.shape=}")
 
     def __len__(self):
         return len(self.data)
