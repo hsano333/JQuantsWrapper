@@ -2,7 +2,8 @@ import os
 import importlib
 
 # modelの切り替え
-from ml.model.jstocks_boolean.manager import BaseManager
+# from ml.model.jstocks_boolean.manager import BaseManager
+from ml.model.jstocks_cross_entropy.manager import BaseManager
 import ml.model.jstocks_boolean.manager
 
 # from .model.iris.manager import BaseManager
@@ -273,7 +274,7 @@ class MyTorch:
         importlib.reload(MyManager)
 
         ndx = 0
-        epoch = 101
+        epoch = 5001
         start_at = time.time()
         print("----------------------------Start----------------------------")
         for ndx in range(self.start_epoch, epoch):

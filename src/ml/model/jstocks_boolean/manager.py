@@ -74,7 +74,7 @@ class BaseManager:
         # print(f"{prediction.shape=}")
         # print(f"{label.shape=}")
         # print(f"{label[:,0].shape=}")
-        loss = self.criterion(inputs=prediction, targets=label, alpha=0.3)
+        loss = self.criterion(inputs=prediction, targets=label, alpha=0.5)
         # print(f"{loss=}")
         # loss1 = self.criterion(inputs=prediction, targets=label[:, 0], alpha=0.1)
         # loss2 = self.criterion(inputs=prediction, targets=label[:, 1], alpha=0.1)
@@ -87,6 +87,7 @@ class BaseManager:
 
         with torch.no_grad():
             tmp_prediction = prediction.detach()
+            # print(f"{tmp_prediction=}")
             metrics[METRICS_LABEL1_NDX : METRICS_LABEL2_NDX + 1, start_ndx:end_ndx] = (
                 label[:, [0, 1]].detach().T
             )
@@ -96,14 +97,14 @@ class BaseManager:
             metrics[METRICS_LOSS1_NDX : METRICS_LOSS2_NDX + 1, start_ndx:end_ndx] = (
                 loss.detach().T
             )
-            ratio1 = len(tmp_prediction[:, 1] < 0.1) / tmp_prediction.shape[0]
-            ratio2 = len(tmp_prediction[:, 1] < 0.1) / tmp_prediction.shape[0]
+            # ratio1 = len(tmp_prediction[:, 1] < 0.1) / tmp_prediction.shape[0]
+            # ratio2 = len(tmp_prediction[:, 1] < 0.1) / tmp_prediction.shape[0]
             offset = 1
-            if ratio1 >= 0.9 or ratio1 <= 0.1:
-                offset = offset * 2
+            # if ratio1 >= 0.9 or ratio1 <= 0.1:
+            # offset = offset * 2
             # if ratio2 >= 0.9 or ratio2 <= 0.1:
             # offset = offset * 3
-            print(f"{ratio1=}")
+            # print(f"{ratio1=}, {tmp_prediction.shape=}")
             # metrics[METRICS_LOSS1_NDX, start_ndx:end_ndx] = loss[:, 0].detach()
             # metrics[METRICS_LOSS2_NDX, start_ndx:end_ndx] = loss[:, 1].detach()
 
