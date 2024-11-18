@@ -57,26 +57,85 @@ class SQL:
         # self.db = DB()
         # self.jq = JQuantsWrapper()
 
-    def insert_price(self, code):
-        try:
-            tmp = self.jq.get_prices(code=code)
-            df = pd.DataFrame(tmp)
-            df = df.iloc[:, :11]
-            df.columns = df.columns.str.lower()
-            df = df.rename(
-                columns={
-                    "upperlimit": "upper_l",
-                    "lowerlimit": "low_l",
-                    "turnovervalue": "turnover",
-                    "adjustmentfactor": "adj",
-                }
-            )
+    def insert_company(self, df):
+        db = self.db
+        secotr17_sql = "select id,code from sector17"
+        sector17 = self.db.get_df(secotr17_sql)
+        tmp = df.merge(sector17, left_on="Sector17Code", right_on="code", how="left")
+        tmp = tmp.rename(columns={"id": "sector17"})
+        tmp = tmp.drop(["Sector17Code", "Sector17CodeName", "code"], axis=1)
+
+        secotr33_sql = "select id, code from sector33"
+        sector33 = db.get_df(secotr33_sql)
+        tmp = tmp.merge(sector33, left_on="Sector33Code", right_on="code", how="left")
+        tmp = tmp.rename(columns={"id": "sector33"})
+        tmp = tmp.drop(["Sector33Code", "Sector33CodeName", "code"], axis=1)
+
+        scale_sql = "select * from topix_scale"
+        scale = db.get_df(scale_sql)
+        tmp = tmp.merge(scale, left_on="ScaleCategory", right_on="name", how="left")
+        tmp = tmp.rename(columns={"id": "scale"})
+        tmp = tmp.drop(["ScaleCategory", "name"], axis=1)
+
+        market_sql = "select id, code from market"
+        market = db.get_df(market_sql)
+        tmp = tmp.merge(market, left_on="MarketCode", right_on="code", how="left")
+        tmp = tmp.rename(columns={"id": "market"})
+        tmp = tmp.drop(
+            ["MarketCode", "code", "CompanyNameEnglish", "MarketCodeName", "Date"],
+            axis=1,
+        )
+        tmp = tmp.rename(columns={"Code": "code", "CompanyName": "name"})
+        self.db.post_df(tmp, "company")
+
+    def insert_company_with_code(self, code):
+        company_data = self.jq.get_list(code)
+        self.insert_company(company_data)
+
+    def convert_price_to_df(self, data, code=""):
+        df = pd.DataFrame(data)
+        df = df.iloc[:, :11]
+        df.columns = df.columns.str.lower()
+        df = df.rename(
+            columns={
+                "upperlimit": "upper_l",
+                "lowerlimit": "low_l",
+                "turnovervalue": "turnover",
+                "adjustmentfactor": "adj",
+            }
+        )
+        if code == "":
+            company = self.sql.get_table("company", "")
+            company = company[["id", "code"]]
+            company.columns = ["company", "code"]
+            tmp = df.merge(company, left_on="code", right_on="code", how="left")
+
+            null_rows = df[df["company"].isnull()]
+            if null_rows.empty is False:
+                unique = null_rows["code"].unique()
+                for code in unique:
+                    self.insert_company_with_code(code)
+
+                company = self.sql.get_table("company", "")
+                company = company[["id", "code"]]
+                company.columns = ["company", "code"]
+                df = df.merge(company, left_on="code", right_on="code", how="left")
+            else:
+                df = tmp
+
+        else:
             company_code = self.get_company_id(code)
             df["company"] = company_code
-            df = df.drop(["code"], axis=1)
-            df = df.fillna({"volume": 0, "turnover": 0})
-            df = df.ffill()
-            df["limit"] = df.shift(1)["close"].apply(get_limit)
+        df = df.drop(["code"], axis=1)
+        df = df.fillna({"volume": 0, "turnover": 0})
+        df = df.ffill()
+        df["limit"] = df.shift(1)["close"].apply(get_limit)
+        return df
+
+    def insert_price_with_code(self, code):
+        try:
+            tmp = self.jq.get_prices(code=code)
+            df = self.convert_price_to_df(tmp, code)
             self.db.post_df(df, "price")
         except Exception as e:
             print(f"Error insert_price():{e}")
@@ -189,6 +248,14 @@ class SQL:
         if tmp is not None:
             id = tmp[0]
         return id
+
+    def get_sid_from_date(self, date):
+        sql = "select min(sid) from indices where date >= {date}"
+
+        sid = self.db.get_one(sql)[0]
+        if sid is not None:
+            sid = -1
+        return sid
 
     def get_table(self, table_name, where=""):
         sql = f"select * from {table_name} {where}"

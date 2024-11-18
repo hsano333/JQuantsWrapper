@@ -203,38 +203,38 @@ class InitDB:
         self.db.post(sql)
 
     def init_company_table(self):
-        db = self.db
+        # db = self.db
+        df = self.jq.get_list()
+        self.sql.insert_company(df)
 
-        secotr17_sql = "select id,code from sector17"
-        sector17 = self.db.get_df(secotr17_sql)
-        tmp = self.df().merge(
-            sector17, left_on="Sector17Code", right_on="code", how="left"
-        )
-        tmp = tmp.rename(columns={"id": "sector17"})
-        tmp = tmp.drop(["Sector17Code", "Sector17CodeName", "code"], axis=1)
-
-        secotr33_sql = "select id, code from sector33"
-        sector33 = db.get_df(secotr33_sql)
-        tmp = tmp.merge(sector33, left_on="Sector33Code", right_on="code", how="left")
-        tmp = tmp.rename(columns={"id": "sector33"})
-        tmp = tmp.drop(["Sector33Code", "Sector33CodeName", "code"], axis=1)
-
-        scale_sql = "select * from topix_scale"
-        scale = db.get_df(scale_sql)
-        tmp = tmp.merge(scale, left_on="ScaleCategory", right_on="name", how="left")
-        tmp = tmp.rename(columns={"id": "scale"})
-        tmp = tmp.drop(["ScaleCategory", "name"], axis=1)
-
-        market_sql = "select id, code from market"
-        market = db.get_df(market_sql)
-        tmp = tmp.merge(market, left_on="MarketCode", right_on="code", how="left")
-        tmp = tmp.rename(columns={"id": "market"})
-        tmp = tmp.drop(
-            ["MarketCode", "code", "CompanyNameEnglish", "MarketCodeName", "Date"],
-            axis=1,
-        )
-        tmp = tmp.rename(columns={"Code": "code", "CompanyName": "name"})
-        self.db.post_df(tmp, "company")
+        # secotr17_sql = "select id,code from sector17"
+        # sector17 = self.db.get_df(secotr17_sql)
+        # tmp = df.merge(sector17, left_on="Sector17Code", right_on="code", how="left")
+        # tmp = tmp.rename(columns={"id": "sector17"})
+        # tmp = tmp.drop(["Sector17Code", "Sector17CodeName", "code"], axis=1)
+        #
+        # secotr33_sql = "select id, code from sector33"
+        # sector33 = db.get_df(secotr33_sql)
+        # tmp = tmp.merge(sector33, left_on="Sector33Code", right_on="code", how="left")
+        # tmp = tmp.rename(columns={"id": "sector33"})
+        # tmp = tmp.drop(["Sector33Code", "Sector33CodeName", "code"], axis=1)
+        #
+        # scale_sql = "select * from topix_scale"
+        # scale = db.get_df(scale_sql)
+        # tmp = tmp.merge(scale, left_on="ScaleCategory", right_on="name", how="left")
+        # tmp = tmp.rename(columns={"id": "scale"})
+        # tmp = tmp.drop(["ScaleCategory", "name"], axis=1)
+        #
+        # market_sql = "select id, code from market"
+        # market = db.get_df(market_sql)
+        # tmp = tmp.merge(market, left_on="MarketCode", right_on="code", how="left")
+        # tmp = tmp.rename(columns={"id": "market"})
+        # tmp = tmp.drop(
+        #     ["MarketCode", "code", "CompanyNameEnglish", "MarketCodeName", "Date"],
+        #     axis=1,
+        # )
+        # tmp = tmp.rename(columns={"Code": "code", "CompanyName": "name"})
+        # self.db.post_df(tmp, "company")
 
     def make_company_and_indices_table(self):
         sql_seq = "CREATE SEQUENCE IF NOT EXISTS company_and_indices_id_seq START 1"
@@ -389,7 +389,7 @@ class InitDB:
     def init_price_table(self):
         company = self.sql.get_table("company")
         # self.sql.insert_price("72030")
-        company["code"].apply(lambda code: self.sql.insert_price(code))
+        company["code"].apply(lambda code: self.sql.insert_price_with_code(code))
 
     def make_sector17_table(self):
         sql_seq = "CREATE SEQUENCE IF NOT EXISTS sector17_id_seq START 1"
@@ -521,6 +521,7 @@ class InitDB:
             "date date NOT NULL, "
             "sid integer NOT NULL, "
             "weekday integer NOT NULL, "
+            "is_saved boolean DEFAULT false, "
             "CONSTRAINT date_pkey PRIMARY KEY (id), "
             "CONSTRAINT date_sid_weekday_key UNIQUE (sid, weekday),  "
             "CONSTRAINT date_sid_fkey FOREIGN KEY (sid) "

@@ -65,9 +65,9 @@ class JQuantsWrapper:
         return tmp_data
 
     ##　上場銘柄一覧取得
-    def get_list(self):
+    def get_list(self, code=""):
         uri = "https://api.jquants.com/v1/listed/info"
-        args = {}
+        args = {"code": code}
         return self.get_info(uri, args)["info"]
 
     ### 株価四本値取得
