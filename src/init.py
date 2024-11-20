@@ -106,23 +106,21 @@ class InitDB:
         self.sql = SQL(self.db, self.jq)
         self.df = None
 
-    def df(self):
+    def get_company_list(self):
         if self.df is None:
             list = self.jq.get_list()
             self.df = pd.DataFrame(list)
         return self.df
 
     def make_indices_table(self):
-        sql_seq = "CREATE SEQUENCE IF NOT EXISTS indices_id_seq START 1"
-        self.db.post(sql_seq)
+        # sql_seq = "CREATE SEQUENCE IF NOT EXISTS indices_id_seq START 1"
+        # self.db.post(sql_seq)
 
         sql = (
             'CREATE TABLE IF NOT EXISTS public."indices" ('
-            "id integer NOT NULL DEFAULT nextval('indices_id_seq'::regclass),"
             'code character varying(4) COLLATE pg_catalog."default" NOT NULL,'
             'name text COLLATE pg_catalog."default",'
-            'CONSTRAINT "indices_pkey" PRIMARY KEY (id),'
-            "CONSTRAINT indices_code_key UNIQUE (code)"
+            'CONSTRAINT "indices_pkey" PRIMARY KEY (code)'
             ")"
         )
         self.db.post(sql)
@@ -148,7 +146,8 @@ class InitDB:
             "CREATE TABLE IF NOT EXISTS public.indices_price "
             "( "
             "id bigint NOT NULL DEFAULT nextval('indices_price_id_seq'::regclass), "
-            "code integer NOT NULL, "
+            # "code integer NOT NULL, "
+            'code character varying(4) NOT NULL COLLATE pg_catalog."default",'
             "date date, "
             "open real, "
             "high real, "
@@ -157,7 +156,7 @@ class InitDB:
             "CONSTRAINT indices_price_pkey PRIMARY KEY (id), "
             "CONSTRAINT indices_price_code_date_key UNIQUE (code, date),  "
             "CONSTRAINT indices_price_code_fkey FOREIGN KEY (code) "
-            "REFERENCES public.indices (id) MATCH SIMPLE "
+            "REFERENCES public.indices (code) MATCH SIMPLE "
             "ON UPDATE NO ACTION "
             "ON DELETE NO ACTION "
             "NOT VALID "
@@ -167,21 +166,21 @@ class InitDB:
         self.db.post(sql)
 
     def make_company_table(self):
-        sql_seq = "CREATE SEQUENCE IF NOT EXISTS company_id_seq START 1"
-        self.db.post(sql_seq)
+        # sql_seq = "CREATE SEQUENCE IF NOT EXISTS company_id_seq START 1"
+        # self.db.post(sql_seq)
 
         sql = (
             "CREATE TABLE IF NOT EXISTS public.company"
             "("
-            "id integer NOT NULL DEFAULT nextval('company_id_seq'::regclass),"
+            # "id integer NOT NULL DEFAULT nextval('company_id_seq'::regclass),"
             'code character varying(6) COLLATE pg_catalog."default",'
             'name text COLLATE pg_catalog."default",'
             "sector17 integer,"
             "sector33 integer,"
             "scale integer,"
             "market integer,"
-            "CONSTRAINT company_pkey PRIMARY KEY (id),"
-            "CONSTRAINT company_code_key UNIQUE (code),"
+            # "CONSTRAINT company_pkey PRIMARY KEY (id),"
+            "CONSTRAINT company_code_key PRIMARY KEY (code),"
             "CONSTRAINT company_market_fkey FOREIGN KEY (market) "
             "REFERENCES public.market (id) MATCH SIMPLE "
             "ON UPDATE NO ACTION "
@@ -204,7 +203,7 @@ class InitDB:
 
     def init_company_table(self):
         # db = self.db
-        df = self.jq.get_list()
+        df = self.get_company_list()
         self.sql.insert_company(df)
 
         # secotr17_sql = "select id,code from sector17"
@@ -244,17 +243,18 @@ class InitDB:
             "CREATE TABLE IF NOT EXISTS public.company_and_indices "
             "( "
             "id integer NOT NULL DEFAULT nextval('company_and_indices_id_seq'::regclass), "
-            "company integer NOT NULL, "
-            "indices integer NOT NULL, "
+            'company character varying(6) NOT NULL COLLATE pg_catalog."default",'
+            'indices character varying(4) NOT NULL COLLATE pg_catalog."default",'
+            # "indices integer NOT NULL, "
             "CONSTRAINT company_and_indices_pkey PRIMARY KEY (id), "
             "CONSTRAINT company_and_indices_company_indices_key UNIQUE (company, indices), "
             "CONSTRAINT company_and_indices_company_fkey FOREIGN KEY (company) "
-            "REFERENCES public.company (id) MATCH SIMPLE "
+            "REFERENCES public.company (code) MATCH SIMPLE "
             "ON UPDATE NO ACTION "
             "ON DELETE NO ACTION "
             "NOT VALID, "
             "CONSTRAINT company_and_indices_indices_fkey FOREIGN KEY (indices) "
-            "REFERENCES public.indices (id) MATCH SIMPLE "
+            "REFERENCES public.indices (code) MATCH SIMPLE "
             "ON UPDATE NO ACTION "
             "ON DELETE NO ACTION "
             "NOT VALID "
@@ -281,7 +281,7 @@ class InitDB:
         topix_scale_df.loc[topix_scale_df["name_scale"] == "-", "name_scale"] = "TOPIX"
 
         indices_df = indices_df.rename(
-            columns={"id": "id_indices", "code": "code_indices", "name": "name_indices"}
+            columns={"code": "code_indices", "name": "name_indices"}
         )
         sector17_df = sector17_df.rename(
             columns={
@@ -308,19 +308,19 @@ class InitDB:
             indices_df, left_on="name_scale", right_on="name_indices", how="left"
         )
         topix_scale_df = topix_scale_df.iloc[:, :3].rename(
-            columns={"id_indices": "id_indices1"}
+            columns={"code_indices": "code_indices1"}
         )
         sector17_df = sector17_df.merge(
             indices_df, left_on="name_sector17", right_on="name_indices", how="left"
         )
         sector17_df = sector17_df.iloc[:, :4].rename(
-            columns={"id_indices": "id_indices2"}
+            columns={"code_indices": "code_indices2"}
         )
         sector33_df = sector33_df.merge(
             indices_df, left_on="name_sector33", right_on="name_indices", how="left"
         )
         sector33_df = sector33_df.iloc[:, :4].rename(
-            columns={"id_indices": "id_indices3"}
+            columns={"code_indices": "code_indices3"}
         )
 
         company_df = company_df.merge(
@@ -333,16 +333,16 @@ class InitDB:
             sector33_df, left_on="sector33", right_on="id_sector33", how="left"
         )
 
-        cols1 = ["id", "id_indices1"]
-        cols2 = ["id", "id_indices2"]
-        cols3 = ["id", "id_indices3"]
+        cols1 = ["code", "code_indices1"]
+        cols2 = ["code", "code_indices2"]
+        cols3 = ["code", "code_indices3"]
         tmp1 = company_df[cols1]
         tmp2 = company_df[cols2]
         tmp3 = company_df[cols3]
 
-        tmp1 = tmp1.rename(columns={"id": "company", "id_indices1": "indices"})
-        tmp2 = tmp2.rename(columns={"id": "company", "id_indices2": "indices"})
-        tmp3 = tmp3.rename(columns={"id": "company", "id_indices3": "indices"})
+        tmp1 = tmp1.rename(columns={"code": "company", "code_indices1": "indices"})
+        tmp2 = tmp2.rename(columns={"code": "company", "code_indices2": "indices"})
+        tmp3 = tmp3.rename(columns={"code": "company", "code_indices3": "indices"})
 
         tmp_id = pd.concat(
             [tmp1["company"], tmp2["company"], tmp3["company"]], axis=0
@@ -364,13 +364,13 @@ class InitDB:
             "("
             "id bigint NOT NULL DEFAULT nextval('price_id_seq'::regclass),"
             "date date,"
-            "company integer,"
+            'company character varying(6) COLLATE pg_catalog."default",'
             "open real,"
             "high real,"
             "low real,"
             "close real,"
-            "upper_l boolean default false,"
-            "low_l boolean defalut false,"
+            "upper_l boolean default false, "
+            "low_l boolean default false, "
             "volume bigint,"
             "turnover bigint,"
             "adj real,"
@@ -378,7 +378,7 @@ class InitDB:
             "CONSTRAINT price_pkey PRIMARY KEY (id), "
             "CONSTRAINT price_date_company_key UNIQUE (date, company),"
             "CONSTRAINT price_company_fkey FOREIGN KEY (company) "
-            "REFERENCES public.company (id) MATCH SIMPLE "
+            "REFERENCES public.company (code) MATCH SIMPLE "
             "ON UPDATE NO ACTION "
             "ON DELETE NO ACTION "
             ")"
@@ -389,7 +389,8 @@ class InitDB:
     def init_price_table(self):
         company = self.sql.get_table("company")
         # self.sql.insert_price("72030")
-        company["code"].apply(lambda code: self.sql.insert_price_with_code(code))
+        self.sql.insert_price_with_code("72030")
+        # company["code"].apply(lambda code: self.sql.insert_price_with_code(code))
 
     def make_sector17_table(self):
         sql_seq = "CREATE SEQUENCE IF NOT EXISTS sector17_id_seq START 1"
@@ -407,7 +408,7 @@ class InitDB:
         self.db.post(sql)
 
     def init_sector17_table(self):
-        sector17 = self.df().drop_duplicates(subset=["Sector17Code"])
+        sector17 = self.get_company_list().drop_duplicates(subset=["Sector17Code"])
         sector17_data = sector17.iloc[:, 4:6]
 
         sector17_data.columns = ["code", "name"]
@@ -437,7 +438,7 @@ class InitDB:
         self.db.post(sql)
 
     def init_sector33_table(self):
-        sector33 = self.df().drop_duplicates(subset=["Sector33Code"])
+        sector33 = self.get_company_list().drop_duplicates(subset=["Sector33Code"])
         sector33_data = sector33.iloc[:, 6:8]
         sector33_data.columns = ["code", "name"]
 
@@ -465,7 +466,7 @@ class InitDB:
         self.db.post(sql)
 
     def init_topix_scale_table(self):
-        scale = self.df().drop_duplicates(subset=["ScaleCategory"])
+        scale = self.get_company_list().drop_duplicates(subset=["ScaleCategory"])
 
         scale_data = scale[["ScaleCategory"]]
         scale_data.columns = ["name"]
@@ -488,7 +489,7 @@ class InitDB:
         self.db.post(sql)
 
     def init_market_table(self):
-        market = self.df().drop_duplicates(subset=["MarketCode"])
+        market = (self.get_company_list()).drop_duplicates(subset=["MarketCode"])
         market_data = market.iloc[:, 9:11]
         market_data.columns = ["code", "name"]
         market_data = market_data.sort_values("code")
@@ -647,6 +648,7 @@ class InitDB:
         tmp = self.jq.get_markets_trades_spec()
         tmp_df = pd.DataFrame(tmp)
         date_df = self.sql.get_table("date")
+        date_df = date_df.drop(["is_saved"], axis=1)
 
         col = tmp_df.columns
 
@@ -681,7 +683,7 @@ class InitDB:
             "( "
             "id bigint NOT NULL DEFAULT nextval('margin_id_seq'::regclass), "
             "date date, "
-            "company integer NOT NULL, "
+            'company character varying(6) NOT NULL COLLATE pg_catalog."default",'
             'issue "char", '
             "total_short bigint, "
             "total_long bigint, "
@@ -692,7 +694,7 @@ class InitDB:
             "CONSTRAINT margin_pkey PRIMARY KEY (id), "
             "CONSTRAINT margin_company_date_issue_key UNIQUE (company, date, issue), "
             "CONSTRAINT margin_company_fkey FOREIGN KEY (company) "
-            "REFERENCES public.company (id) MATCH SIMPLE "
+            "REFERENCES public.company (code) MATCH SIMPLE "
             "ON UPDATE NO ACTION "
             "ON DELETE NO ACTION "
             "NOT VALID "
@@ -708,7 +710,7 @@ class InitDB:
             "CREATE TABLE IF NOT EXISTS public.fins "
             "( "
             "id integer NOT NULL DEFAULT nextval('fins_id_seq'::regclass), "
-            "company bigint NOT NULL, "
+            'company character varying(6) NOT NULL COLLATE pg_catalog."default",'
             "date date NOT NULL, "
             '"DisclosureNumber" bigint , '
             '"TypeOfDocument" text COLLATE pg_catalog."default", '
@@ -816,7 +818,7 @@ class InitDB:
             '"NextYearForecastNonConsolidatedEarningsPerShare" real , '
             "CONSTRAINT fins_pkey PRIMARY KEY (id), "
             "CONSTRAINT fins_company_fkey FOREIGN KEY (company) "
-            "REFERENCES public.company (id) MATCH SIMPLE "
+            "REFERENCES public.company (code) MATCH SIMPLE "
             "ON UPDATE NO ACTION "
             "ON DELETE NO ACTION "
             "NOT VALID "
@@ -870,19 +872,10 @@ class InitDB:
 
 
 init = InitDB()
-id = init.sql.get_company_id(72030)
-init.make_fins_table()
-init.insert_fins_table()
-print(id)
-# init.init_price_table()
-# init.make_margin_table()
-# init.make_trades_spec_table()
-# init.insert_trades_spec_table()
-# init.make_jq_sid_table()
-# init.make_date_table()
-# init.init_sid_date_table()
-# init.make_jq_sid_table()
-# init.make_sid_table()
-# init.init_company_and_indices_table()
+# init.init_table()
+init.init_price_table()
+# init.make_company_and_indices_table()
+# init.make_indices_price_table()
+# init.make_indices_table()
 # init.make_table()
 # init.init_table()

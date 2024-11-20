@@ -1,4 +1,5 @@
 import pandas as pd
+from datetime import datetime, timedelta
 
 # from db.mydb import DB
 # from .jquants import JQuantsWrapper
@@ -53,6 +54,7 @@ class SQL:
         self.db = db
         self.jq = jq
         pd.set_option("future.no_silent_downcasting", True)
+        self.company_list = None
 
         # self.db = DB()
         # self.jq = JQuantsWrapper()
@@ -88,14 +90,38 @@ class SQL:
         tmp = tmp.rename(columns={"Code": "code", "CompanyName": "name"})
         self.db.post_df(tmp, "company")
 
-    def insert_company_with_code(self, code):
-        company_data = self.jq.get_list(code)
-        self.insert_company(company_data)
+    # def merge_company_df(self, df):
+    #     """
+    #     引数のdfに対して、codeをもとにmergeする
+    #
+    #     """
+    #     if self.company_list is None:
+    #         self.company_list = self.get_table("company", "")
+    #     company = self.company_list[["id", "code"]]
+    #     company.columns = ["company", "code"]
+    #     return df.merge(company, left_on="code", right_on="code", how="left")
 
-    def convert_price_to_df(self, data, code=""):
+    def merge_indices_df(self, df):
+        """
+        引数のdfに対して、codeをもとにmergeする
+        """
+        # if self.company_list is None:
+        indices_list = self.get_table("indices", "")
+        company = indices_list[["id", "code"]]
+        company.columns = ["code_indices", "code"]
+        return df.merge(company, left_on="code", right_on="code_indices", how="left")
+
+    # def insert_company_with_code(self, code):
+    #     company_data = self.jq.get_list(code)
+    #     self.insert_company(company_data)
+
+    # def convert_price_to_df(self, data, code=""):
+    def convert_price_to_df(self, data):
         df = pd.DataFrame(data)
         df = df.iloc[:, :11]
         df.columns = df.columns.str.lower()
+        # print("{df=}")
+        # print("{df.columns.str=}")
         df = df.rename(
             columns={
                 "upperlimit": "upper_l",
@@ -104,29 +130,36 @@ class SQL:
                 "adjustmentfactor": "adj",
             }
         )
-        if code == "":
-            company = self.sql.get_table("company", "")
-            company = company[["id", "code"]]
-            company.columns = ["company", "code"]
-            tmp = df.merge(company, left_on="code", right_on="code", how="left")
+        # if code != "":
+        # company = self.get_table("company", "")
+        # company = company[["id", "code"]]
+        # company.columns = ["company", "code"]
+        # tmp = df.merge(company, left_on="code", right_on="code", how="left")
+        # df = self.merge_company_df(df)
 
-            null_rows = df[df["company"].isnull()]
-            if null_rows.empty is False:
-                unique = null_rows["code"].unique()
-                for code in unique:
-                    self.insert_company_with_code(code)
+        # null_rows = df[df["company"].isnull()]
+        # if null_rows.empty is False:
+        #     unique = null_rows["code"].unique()
+        #     for code in unique:
+        #         self.insert_company_with_code(code)
+        #
+        #     company = self.get_table("company", "")
+        #     company = company[["id", "code"]]
+        #     company.columns = ["company", "code"]
+        #     df = df.merge(company, left_on="code", right_on="code", how="left")
+        # else:
+        # df = tmp
 
-                company = self.sql.get_table("company", "")
-                company = company[["id", "code"]]
-                company.columns = ["company", "code"]
-                df = df.merge(company, left_on="code", right_on="code", how="left")
-            else:
-                df = tmp
+        # else:
+        # company_code = self.get_company_id(code)
+        # df["company"] = code
 
-        else:
-            company_code = self.get_company_id(code)
-            df["company"] = company_code
-        df = df.drop(["code"], axis=1)
+        df = df.rename(
+            columns={
+                "code": "company",
+            }
+        )
+        # df = df.drop(["code"], axis=1)
         df = df.fillna({"volume": 0, "turnover": 0})
         df = df.ffill()
         df["limit"] = df.shift(1)["close"].apply(get_limit)
@@ -135,20 +168,31 @@ class SQL:
     def insert_price_with_code(self, code):
         try:
             tmp = self.jq.get_prices(code=code)
-            df = self.convert_price_to_df(tmp, code)
+            #print(f"{tmp=}")
+            df = self.convert_price_to_df(tmp)
             self.db.post_df(df, "price")
         except Exception as e:
             print(f"Error insert_price():{e}")
 
-    def insert_fins(self, code):
+    def insert_fins(self, code="", date_from="", date_to=""):
         try:
-            tmp = self.jq.get_fins_statements(code=code)
+            if code != "":
+                tmp = self.jq.get_fins_statements(code=code)
+            else:
+                tmp = self.merge_date_loop(
+                    self.jq.get_fins_statements, date_from, date_to
+                )
+
             df = pd.DataFrame(tmp)
             if len(df) == 0:
                 return
 
-            company_code = self.get_company_id(code)
-            df["company"] = company_code
+            # company_code = self.get_company_id(code)
+            if code != "":
+                df["company"] = code
+            else:
+                df["company"] = df["LocalCode"]
+
             df = df.rename(
                 columns={
                     "DisclosedDate": "date",
@@ -161,18 +205,44 @@ class SQL:
             columns = columns.insert(0, "company")
             df = df.reindex(columns=columns)
             df = df.replace("", pd.NA)
-            # df = df.replace("false", False)
-            # df = df.replace("true", True)
-            # pd.set_option("future.no_silent_downcasting", True)
 
             self.db.post_df(df, "fins")
         except Exception as e:
             print(f"Error insert_price():{e}")
 
+    def merge_date_loop(self, func, date_from, date_to):
+        date_from_td = datetime.strptime(date_from, "%Y-%m-%d")
+        date_to_td = datetime.strptime(date_to, "%Y-%m-%d")
+        date_tmp = date_from_td + timedelta(days=1)
+        tmp = []
+        while date_tmp <= date_to_td:
+            tmp_data = func(date=datetime.strftime(date_tmp, "%Y-%m-%d"))
+            if tmp_data is not None:
+                tmp.extend(tmp_data)
+            date_tmp = date_tmp + timedelta(days=1)
+            if len(tmp) > 0:
+                break
+        return tmp
+
     # 未確認
-    def insert_margin(self, code):
+    def insert_margin(self, code="", date_from="", date_to=""):
         try:
-            tmp = self.jq.get_weekly_margin_interest.get_prices(code=code)
+            if code == "":
+                # date_from_td = datetime.strptime(date_from, "%Y-%m-%d")
+                # date_to_td = datetime.strptime(date_to, "%Y-%m-%d")
+                # date_tmp = date_from_td + datetime.timedelta(days=1)
+                # tmp = []
+                # while date_tmp <= date_to_td:
+                #     tmp.extend(self.jq.get_weekly_margin_interest(date=date_tmp))
+                #     date_tmp = date_tmp + datetime.timedelta(days=1)
+                tmp = self.merge_date_loop(
+                    self.jq.get_weekly_margin_interest, date_from, date_to
+                )
+
+            else:
+                tmp = self.jq.get_weekly_margin_interest(
+                    code=code, date=date_from, date_to=date_to
+                )
             df = pd.DataFrame(tmp)
             df.columns = df.columns.str.lower()
             df = df.rename(
@@ -186,25 +256,44 @@ class SQL:
                     "IssueType": "type",
                 }
             )
-            company_code = self.get_company_id(code)
-            df["company"] = company_code
+            df["company"] = df["code"]
+            # if code != "":
+            #     # company_code = self.get_company_id(code)
+            #     df["company"] = df["code"]
+            # else:
+            #     df = self.merge_company_df(df)
             df = df.drop(["code"], axis=1)
 
             self.db.post_df(df, "margin")
         except Exception as e:
             print(f"Error insert_price():{e}")
 
-    def insert_indice_price(self, code):
+    def insert_indice_price(self, code="", date_from="", date_to=""):
         # 未チェック 動作不明
         try:
-            tmp = self.jq.get_indices(code=code)
+            if code == "":
+                tmp = self.merge_date_loop(self.jq.get_indices, date_from, date_to)
+                # date_from_td = datetime.strptime(date_from, "%Y-%m-%d")
+                # date_to_td = datetime.strptime(date_to, "%Y-%m-%d")
+                # date_tmp = date_from_td + datetime.timedelta(days=1)
+                # tmp = []
+                # while date_tmp <= date_to_td:
+                #     tmp.extend(self.jq.get_indices(date=date_tmp))
+                #     date_tmp = date_tmp + datetime.timedelta(days=1)
+            else:
+                tmp = self.jq.get_indices(
+                    code=code, date_from=date_from, date_to=date_to
+                )
             df = pd.DataFrame(tmp)
             df.columns = df.columns.str.lower()
 
-            company_code = self.get_indices_id(self.db, code)
-            df["code2"] = company_code
+            if code != "":
+                company_code = self.get_indices_id(self.db, code)
+                df["code_indices"] = company_code
+            else:
+                df = self.merge_indices_df(df)
             df = df.drop(["code"], axis=1)
-            df = df.rename(columns={"code2": "code"})
+            df = df.rename(columns={"code_indices": "code"})
 
             self.db.post_df(df, "indices_price")
         except Exception as e:
@@ -231,14 +320,14 @@ class SQL:
             id = tmp[0]
         return id
 
-    def get_company_id(self, company_code) -> []:
-        sql = f"select id from company where code = '{company_code}'"
-
-        tmp = self.db.get_one(sql)
-        id = 0
-        if tmp is not None:
-            id = tmp[0]
-        return id
+    # def get_company_id(self, company_code) -> []:
+    #     sql = f"select id from company where code = '{company_code}'"
+    #
+    #     tmp = self.db.get_one(sql)
+    #     id = 0
+    #     if tmp is not None:
+    #         id = tmp[0]
+    #     return id
 
     def get_indices_id(self, db, code):
         sql = f"select id from indices where code = '{code}'"

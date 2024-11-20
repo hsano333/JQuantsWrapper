@@ -146,8 +146,8 @@ class JStocksDataset(Dataset):
         jq = JQuantsWrapper()
         sql = SQL(db, jq)
 
-        id = sql.get_company_id(code)
-        where = f"where company = {id}"
+        # id = sql.get_company_id(code)
+        where = f"where company = {code}"
         prices = sql.get_table("price", where)
 
         prices["turnover"] = prices.apply(change_turnover, axis=1)
@@ -165,7 +165,8 @@ class JStocksDataset(Dataset):
 
         # 最後に不要なカラムを削除
         prices = prices.drop(
-            ["id", "date", "company", "upper_l", "low_l", "adj", "limit", "tmp"], axis=1
+            ["code", "date", "company", "upper_l", "low_l", "adj", "limit", "tmp"],
+            axis=1,
         )
 
         condition = prices["is_rised"] < 0.01

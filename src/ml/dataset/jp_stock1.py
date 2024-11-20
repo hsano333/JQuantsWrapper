@@ -22,8 +22,8 @@ class SimpleDataset(Dataset):
         self.jq = JQuantsWrapper()
         self.sql = SQL(self.db, self.jq)
 
-        id = self.sql.get_company_id(code)
-        where = f"where company = {id}"
+        # id = self.sql.get_company_id(code)
+        where = f"where company = {code}"
         self.prices = self.sql.get_table("price", where)
 
         tmp_label = self.prices.shift(-15)["close"] - self.prices["close"] >= 0

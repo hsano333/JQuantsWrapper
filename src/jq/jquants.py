@@ -40,9 +40,9 @@ class JQuantsWrapper:
         uri = uri + "?"
         for key, value in args.items():
             uri = uri + f"{key}={value}&"
-        uri.removesuffix("-&")
-        uri.removesuffix("-?")
-        print(f"{uri=}")
+        uri = uri.removesuffix("&")
+        uri = uri.removesuffix("?")
+        print(f"get_info:{uri=}")
         req = requests.get(uri, headers=self.headers)
 
         tmp_data = {}
