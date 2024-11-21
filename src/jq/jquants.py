@@ -66,31 +66,43 @@ class JQuantsWrapper:
     def get_list(self, code=""):
         uri = "https://api.jquants.com/v1/listed/info"
         args = {"code": code}
-        return self.get_info(uri, args)["info"]
+        tmp = self.get_info(uri, args)
+        if "info" in tmp:
+            return tmp["info"]
+        return None
 
     ### 株価四本値取得
-    # if date_to and date is valid, date is date_from
-    def get_prices(self, code="", date="", date_to=""):
+    # if date_to and date_from is valid
+    def get_prices(self, code="", date_from="", date_to=""):
         uri = "https://api.jquants.com/v1/prices/daily_quotes"
-        args = get_code_date(code, date, date_to)
-        return self.get_info(uri, args)["daily_quotes"]
+        args = get_code_date(code, date_from, date_to)
+        tmp = self.get_info(uri, args)
+        if "daily_quotes" in tmp:
+            return tmp["daily_quotes"]
+        return None
 
     ### 財務情報取得
-    def get_fins_statements(self, code="", date=""):
-        if code == "" and date == "":
+    def get_fins_statements(self, code="", date_from=""):
+        if code == "" and date_from == "":
             raise ValueError("Invalid Argument")
         if not code == "":
             args = {"code": code}
-        if not date == "":
-            args = {"date": date}
+        if not date_from == "":
+            args = {"date": date_from}
 
         uri = "https://api.jquants.com/v1/fins/statements"
-        return self.get_info(uri, args)["statements"]
+        tmp = self.get_info(uri, args)
+        if "statements" in tmp:
+            return tmp["statements"]
+        return None
 
     ### 決算発表予定日取得
     def get_fins_announcement(self):
         uri = "https://api.jquants.com/v1/fins/announcement"
-        return self.get_info(uri)["announcement"]
+        tmp = self.get_info(uri)
+        if "announcement" in tmp:
+            return tmp["announcement"]
+        return None
 
     ### 取引カレンダー取得
     def get_trading_calendar(self, holidaydivision="", date_from="", date_to=""):
@@ -103,7 +115,10 @@ class JQuantsWrapper:
             args["from"] = date_from
             args["to"] = date_to
         uri = "https://api.jquants.com/v1/markets/trading_calendar"
-        return self.get_info(uri, args)["trading_calendar"]
+        tmp = self.get_info(uri, args)
+        if "trading_calendar" in tmp:
+            return tmp["trading_calendar"]
+        return None
 
     ### 投資部門情報
     def get_markets_trades_spec(self, section="", date_from="", date_to=""):
@@ -116,13 +131,19 @@ class JQuantsWrapper:
             args["from"] = date_from
             args["to"] = date_to
         uri = "https://api.jquants.com/v1/markets/trades_spec"
-        return self.get_info(uri, args)["trades_spec"]
+        tmp = self.get_info(uri, args)
+        if "trades_spec" in tmp:
+            return tmp["trades_spec"]
+        return None
 
     ### 指数四本値
     def get_indices(self, code="", date_from="", date_to=""):
         args = get_code_date(code, date_from, date_to)
         uri = "https://api.jquants.com/v1/indices"
-        return self.get_info(uri, args)["indices"]
+        tmp = self.get_info(uri, args)
+        if "indices" in tmp:
+            return tmp["indices"]
+        return None
 
     ### TOPIX指数四本値
     def get_indices_topix(self, date_from="", date_to=""):
@@ -133,7 +154,10 @@ class JQuantsWrapper:
             args["from"] = date_from
             args["to"] = date_to
         uri = "https://api.jquants.com/v1/indices/topix"
-        return self.get_info(uri, args)["topix"]
+        tmp = self.get_info(uri, args)
+        if "topix" in tmp:
+            return tmp["topix"]
+        return None
 
     ### オプション四本値
     def get_index_option(self, date=""):
@@ -143,14 +167,19 @@ class JQuantsWrapper:
         # if not date_from == "":
         # args["date"] = date
         uri = "https://api.jquants.com/v1/option/index_option"
-        return self.get_info(uri, args)["options"]
+        tmp = self.get_info(uri, args)
+        if "options" in tmp:
+            return tmp["options"]
+        return None
 
     ### 信用取引週末残高
-    # if date_to and date is valid, date is date_from
-    def get_weekly_margin_interest(self, code="", date="", date_to=""):
+    def get_weekly_margin_interest(self, code="", date_from="", date_to=""):
         uri = "https://api.jquants.com/v1/markets/weekly_margin_interest"
-        args = get_code_date(code, date, date_to)
-        return self.get_info(uri, args)["weekly_margin_interest"]
+        args = get_code_date(code, date_from, date_to)
+        tmp = self.get_info(uri, args)
+        if "weekly_margin_interest" in tmp:
+            return tmp["weekly_margin_interest"]
+        return None
 
     ### 業種別空売り比率
     # if date_to and date is valid, date is date_from

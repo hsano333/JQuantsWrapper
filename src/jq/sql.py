@@ -59,6 +59,11 @@ class SQL:
         # self.db = DB()
         # self.jq = JQuantsWrapper()
 
+    def get_all_company(self):
+        if self.company_list is None:
+            self.company_list = self.get_table("company")
+        return self.company_list
+
     def insert_company(self, df):
         db = self.db
         # secotr17_sql = "select code from sector17"
@@ -192,6 +197,8 @@ class SQL:
             print(f"Error insert_price():{e}")
 
     def insert_fins(self, code="", date_from="", date_to=""):
+        companys = self.get_all_company()
+        companys = companys[["code", "name"]]
         try:
             if code != "":
                 tmp = self.jq.get_fins_statements(code=code)
@@ -200,9 +207,9 @@ class SQL:
                     self.jq.get_fins_statements, date_from, date_to
                 )
 
-            df = pd.DataFrame(tmp)
-            if len(df) == 0:
+            if len(tmp) == 0:
                 return
+            df = pd.DataFrame(tmp)
 
             # company_code = self.get_company_id(code)
             if code != "":
@@ -215,7 +222,10 @@ class SQL:
                     "DisclosedDate": "date",
                 }
             )
-            df = df.drop(["LocalCode", "DisclosedTime"], axis=1)
+
+            df = df.merge(companys, left_on="LocalCode", right_on="code", how="inner")
+
+            df = df.drop(["LocalCode", "DisclosedTime", "code", "name"], axis=1)
             df["date"] = pd.to_datetime(df["date"]).dt.date
             columns = df.columns
             columns = columns.drop("company")
@@ -225,7 +235,7 @@ class SQL:
 
             self.db.post_df(df, "fins")
         except Exception as e:
-            print(f"Error insert_price():{e}")
+            print(f"Error insert_fins():{e}")
 
     def merge_date_loop(self, func, date_from, date_to):
         # date_from_td = datetime.strptime(date_from, "%Y-%m-%d")
@@ -234,8 +244,10 @@ class SQL:
         date_tmp = datetime.strptime(date_from, "%Y-%m-%d")
         tmp = []
         cnt = 0
+        print(f"{date_to_td=}")
+        print(f"{date_tmp=}")
         while date_tmp <= date_to_td:
-            tmp_data = func(date=datetime.strftime(date_tmp, "%Y-%m-%d"))
+            tmp_data = func(date_from=date_from)
             if tmp_data is not None and len(tmp_data) > 0:
                 cnt = cnt + 1
                 tmp.extend(tmp_data)
@@ -246,6 +258,8 @@ class SQL:
 
     # 未確認
     def insert_margin(self, code="", date_from="", date_to=""):
+        companys = self.get_all_company()
+        companys = companys[["code", "name"]]
         try:
             if code == "":
                 # date_from_td = datetime.strptime(date_from, "%Y-%m-%d")
@@ -263,6 +277,9 @@ class SQL:
                 tmp = self.jq.get_weekly_margin_interest(
                     code=code, date=date_from, date_to=date_to
                 )
+            if len(tmp) == 0:
+                print("insert_margin(): there is no valid data")
+                return
             df = pd.DataFrame(tmp)
             df.columns = df.columns.str.lower()
             df = df.rename(
@@ -276,17 +293,19 @@ class SQL:
                     "IssueType": "type",
                 }
             )
-            df["company"] = df["code"]
+            # df["company"] = df["code"]
+            df = df.merge(companys, left_on="code", right_on="code", how="inner")
             # if code != "":
             #     # company_code = self.get_company_id(code)
             #     df["company"] = df["code"]
             # else:
             #     df = self.merge_company_df(df)
-            df = df.drop(["code"], axis=1)
+            # df = df.drop(["code"], axis=1)
+            df = df.drop(["name", "code"], axis=1)
 
             self.db.post_df(df, "margin")
         except Exception as e:
-            print(f"Error insert_price():{e}")
+            print(f"Error insert_margin():{e}")
 
     def insert_indice_price(self, code="", date_from="", date_to=""):
         # 未チェック 動作不明
@@ -304,6 +323,9 @@ class SQL:
                 tmp = self.jq.get_indices(
                     code=code, date_from=date_from, date_to=date_to
                 )
+            if len(tmp) == 0:
+                print("insert_indice_price:There is no valid data")
+                return
             df = pd.DataFrame(tmp)
             df.columns = df.columns.str.lower()
 
