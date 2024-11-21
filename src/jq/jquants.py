@@ -42,7 +42,6 @@ class JQuantsWrapper:
             uri = uri + f"{key}={value}&"
         uri = uri.removesuffix("&")
         uri = uri.removesuffix("?")
-        print(f"get_info:{uri=}")
         req = requests.get(uri, headers=self.headers)
 
         tmp_data = {}
@@ -50,17 +49,16 @@ class JQuantsWrapper:
             if key != "pagination_key":
                 tmp_data[key] = value
 
-        # info = req.json()["info"]
         while "pagination_key" in req.json():
             key = req.json()["pagination_key"]
+            concat_str = "&" if "?" in uri else "?"
             req = requests.get(
-                uri + f"?query=param&pagination_key={key}",
+                uri + concat_str + f"pagination_key={key}",
                 headers=self.headers,
             )
-            # info += req.json()["info"]
             for key, value in req.json().items():
-                if key != "pagination_key":
-                    tmp_data[key] = value
+                if key != "pagination_key" and key in tmp_data:
+                    tmp_data[key] += value
 
         return tmp_data
 

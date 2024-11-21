@@ -146,6 +146,7 @@ class SQL:
                 "adjustmentfactor": "adj",
             }
         )
+        df = df.sort_values(["code", "date"])
         # if code != "":
         # company = self.get_table("company", "")
         # company = company[["id", "code"]]
@@ -227,16 +228,19 @@ class SQL:
             print(f"Error insert_price():{e}")
 
     def merge_date_loop(self, func, date_from, date_to):
-        date_from_td = datetime.strptime(date_from, "%Y-%m-%d")
+        # date_from_td = datetime.strptime(date_from, "%Y-%m-%d")
         date_to_td = datetime.strptime(date_to, "%Y-%m-%d")
-        date_tmp = date_from_td + timedelta(days=1)
+        # date_tmp = date_from_td + timedelta(days=1)
+        date_tmp = datetime.strptime(date_from, "%Y-%m-%d")
         tmp = []
+        cnt = 0
         while date_tmp <= date_to_td:
             tmp_data = func(date=datetime.strftime(date_tmp, "%Y-%m-%d"))
-            if tmp_data is not None:
+            if tmp_data is not None and len(tmp_data) > 0:
+                cnt = cnt + 1
                 tmp.extend(tmp_data)
             date_tmp = date_tmp + timedelta(days=1)
-            if len(tmp) > 0:
+            if cnt > 2:
                 break
         return tmp
 
