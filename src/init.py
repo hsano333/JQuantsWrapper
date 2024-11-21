@@ -175,8 +175,8 @@ class InitDB:
             # "id integer NOT NULL DEFAULT nextval('company_id_seq'::regclass),"
             'code character varying(6) COLLATE pg_catalog."default",'
             'name text COLLATE pg_catalog."default",'
-            "sector17 integer,"
-            "sector33 integer,"
+            "sector17 character varying(2),"
+            "sector33 character varying(4),"
             "scale integer,"
             "market integer,"
             # "CONSTRAINT company_pkey PRIMARY KEY (id),"
@@ -190,11 +190,11 @@ class InitDB:
             "ON UPDATE NO ACTION "
             "ON DELETE NO ACTION,"
             "CONSTRAINT company_sector17_fkey FOREIGN KEY (sector17) "
-            "REFERENCES public.sector17 (id) MATCH SIMPLE "
+            "REFERENCES public.sector17 (code) MATCH SIMPLE "
             "ON UPDATE NO ACTION "
             "ON DELETE NO ACTION,"
             "CONSTRAINT company_sector33_fkey FOREIGN KEY (sector33) "
-            "REFERENCES public.sector33 (id) MATCH SIMPLE "
+            "REFERENCES public.sector33 (code) MATCH SIMPLE "
             "ON UPDATE NO ACTION "
             "ON DELETE NO ACTION "
             ")"
@@ -285,7 +285,6 @@ class InitDB:
         )
         sector17_df = sector17_df.rename(
             columns={
-                "id": "id_sector17",
                 "code": "code_sector17",
                 "name": "name_sector17",
             }
@@ -295,7 +294,6 @@ class InitDB:
         ] = "TOPIX"
         sector33_df = sector33_df.rename(
             columns={
-                "id": "id_sector33",
                 "code": "code_sector33",
                 "name": "name_sector33",
             }
@@ -327,10 +325,10 @@ class InitDB:
             topix_scale_df, left_on="scale", right_on="id_scale", how="left"
         )
         company_df = company_df.merge(
-            sector17_df, left_on="sector17", right_on="id_sector17", how="left"
+            sector17_df, left_on="sector17", right_on="code_sector17", how="left"
         )
         company_df = company_df.merge(
-            sector33_df, left_on="sector33", right_on="id_sector33", how="left"
+            sector33_df, left_on="sector33", right_on="code_sector33", how="left"
         )
 
         cols1 = ["code", "code_indices1"]
@@ -393,16 +391,12 @@ class InitDB:
         # company["code"].apply(lambda code: self.sql.insert_price_with_code(code))
 
     def make_sector17_table(self):
-        sql_seq = "CREATE SEQUENCE IF NOT EXISTS sector17_id_seq START 1"
-        self.db.post(sql_seq)
-
         sql = (
             'CREATE TABLE IF NOT EXISTS public."sector17" ('
-            "id integer NOT NULL DEFAULT nextval('sector17_id_seq'::regclass),"
+            # "id integer NOT NULL DEFAULT nextval('sector17_id_seq'::regclass),"
             'code character varying(2) COLLATE pg_catalog."default" NOT NULL,'
             'name text COLLATE pg_catalog."default",'
-            'CONSTRAINT "sector17_pkey" PRIMARY KEY (id), '
-            "CONSTRAINT sector17_code_key UNIQUE (code)"
+            'CONSTRAINT "sector17_pkey" PRIMARY KEY (code) '
             ")"
         )
         self.db.post(sql)
@@ -423,15 +417,12 @@ class InitDB:
         self.db.post_df(sector17_data, "sector17")
 
     def make_sector33_table(self):
-        sql_seq = "CREATE SEQUENCE IF NOT EXISTS sector33_id_seq START 1"
-        self.db.post(sql_seq)
-
         sql = (
             'CREATE TABLE IF NOT EXISTS public."sector33" ('
-            "id integer NOT NULL DEFAULT nextval('sector33_id_seq'::regclass),"
+            # "id integer NOT NULL DEFAULT nextval('sector33_id_seq'::regclass),"
             'code character varying(4) COLLATE pg_catalog."default" NOT NULL,'
             'name text COLLATE pg_catalog."default",'
-            'CONSTRAINT "sector33_pkey" PRIMARY KEY (id), '
+            'CONSTRAINT "sector33_pkey" PRIMARY KEY (code), '
             "CONSTRAINT sector33_code_key UNIQUE (code)"
             ")"
         )
@@ -475,15 +466,14 @@ class InitDB:
         self.db.post_df(scale_data, "topix_scale")
 
     def make_market_table(self):
-        sql_seq = "CREATE SEQUENCE IF NOT EXISTS market_id_seq START 1"
-        self.db.post(sql_seq)
+        # sql_seq = "CREATE SEQUENCE IF NOT EXISTS market_id_seq START 1"
+        # self.db.post(sql_seq)
         sql = (
             'CREATE TABLE IF NOT EXISTS public."market" ('
-            "id integer NOT NULL DEFAULT nextval('market_id_seq'::regclass),"
+            # "id integer NOT NULL DEFAULT nextval('market_id_seq'::regclass),"
             'code character varying(4) COLLATE pg_catalog."default" NOT NULL,'
             'name text COLLATE pg_catalog."default",'
-            'CONSTRAINT "market_pkey" PRIMARY KEY (id), '
-            "CONSTRAINT market_code_key UNIQUE (code)"
+            'CONSTRAINT "market_pkey" PRIMARY KEY (code) '
             ")"
         )
         self.db.post(sql)
@@ -872,10 +862,22 @@ class InitDB:
 
 
 init = InitDB()
+
+# init.make_company_and_indices_table()
+# init.init_company_and_indices_table()
+# init.make_company_table()
+# init.init_company_table()
+
+# init.make_market_table()
+# init.init_market_table()
+# init.make_sector17_table()
+# init.make_sector33_table()
+# init.init_sector17_table()
+# init.init_sector33_table()
 # init.init_table()
-init.init_price_table()
+# init.init_price_table()
 # init.make_company_and_indices_table()
 # init.make_indices_price_table()
 # init.make_indices_table()
-# init.make_table()
-# init.init_table()
+init.make_table()
+init.init_table()

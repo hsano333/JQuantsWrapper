@@ -61,30 +61,46 @@ class SQL:
 
     def insert_company(self, df):
         db = self.db
-        secotr17_sql = "select id,code from sector17"
-        sector17 = self.db.get_df(secotr17_sql)
-        tmp = df.merge(sector17, left_on="Sector17Code", right_on="code", how="left")
-        tmp = tmp.rename(columns={"id": "sector17"})
-        tmp = tmp.drop(["Sector17Code", "Sector17CodeName", "code"], axis=1)
+        # secotr17_sql = "select code from sector17"
+        # sector17 = self.db.get_df(secotr17_sql)
+        # tmp = df.merge(sector17, left_on="Sector17Code", right_on="code", how="left")
+        # tmp = df.rename(columns={"Sector17Code": "sector17"})
+        # tmp = tmp.drop(["Sector17Code", "Sector17CodeName", "code"], axis=1)
 
-        secotr33_sql = "select id, code from sector33"
-        sector33 = db.get_df(secotr33_sql)
-        tmp = tmp.merge(sector33, left_on="Sector33Code", right_on="code", how="left")
-        tmp = tmp.rename(columns={"id": "sector33"})
-        tmp = tmp.drop(["Sector33Code", "Sector33CodeName", "code"], axis=1)
+        # secotr33_sql = "select  code from sector33"
+        # sector33 = db.get_df(secotr33_sql)
+        # tmp = tmp.merge(sector33, left_on="Sector33Code", right_on="code", how="left")
+        # tmp = tmp.rename(columns={"Sector33Code": "sector33"})
+        # tmp = tmp.drop(["Sector33Code", "Sector33CodeName", "code"], axis=1)
+
+        tmp = df.rename(
+            columns={
+                "Sector17Code": "sector17",
+                "Sector33Code": "sector33",
+                "MarketCode": "market",
+            }
+        )
 
         scale_sql = "select * from topix_scale"
         scale = db.get_df(scale_sql)
         tmp = tmp.merge(scale, left_on="ScaleCategory", right_on="name", how="left")
         tmp = tmp.rename(columns={"id": "scale"})
-        tmp = tmp.drop(["ScaleCategory", "name"], axis=1)
+        # tmp = tmp.drop(["ScaleCategory", "name"], axis=1)
 
-        market_sql = "select id, code from market"
-        market = db.get_df(market_sql)
-        tmp = tmp.merge(market, left_on="MarketCode", right_on="code", how="left")
-        tmp = tmp.rename(columns={"id": "market"})
+        # market_sql = "select code from market"
+        # market = db.get_df(market_sql)
+        # tmp = tmp.merge(market, left_on="MarketCode", right_on="code", how="left")
+        # tmp = tmp.rename(columns={"MarketCode": "market"})
         tmp = tmp.drop(
-            ["MarketCode", "code", "CompanyNameEnglish", "MarketCodeName", "Date"],
+            [
+                "Date",
+                "CompanyNameEnglish",
+                "name",
+                "MarketCodeName",
+                "ScaleCategory",
+                "Sector17CodeName",
+                "Sector33CodeName",
+            ],
             axis=1,
         )
         tmp = tmp.rename(columns={"Code": "code", "CompanyName": "name"})
@@ -168,7 +184,7 @@ class SQL:
     def insert_price_with_code(self, code):
         try:
             tmp = self.jq.get_prices(code=code)
-            #print(f"{tmp=}")
+            # print(f"{tmp=}")
             df = self.convert_price_to_df(tmp)
             self.db.post_df(df, "price")
         except Exception as e:
