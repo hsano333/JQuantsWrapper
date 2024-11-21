@@ -355,10 +355,11 @@ class SQL:
         return id
 
     def get_sid_from_date(self, date):
-        sql = "select min(sid) from indices where date >= {date}"
+        sql = f"select min(sid) from date where date >= '{date}'"
 
         sid = self.db.get_one(sql)[0]
-        if sid is not None:
+
+        if sid is None:
             sid = -1
         return sid
 

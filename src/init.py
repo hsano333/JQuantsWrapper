@@ -172,17 +172,15 @@ class InitDB:
         sql = (
             "CREATE TABLE IF NOT EXISTS public.company"
             "("
-            # "id integer NOT NULL DEFAULT nextval('company_id_seq'::regclass),"
-            'code character varying(6) COLLATE pg_catalog."default",'
+            "code character varying(6),"
             'name text COLLATE pg_catalog."default",'
             "sector17 character varying(2),"
             "sector33 character varying(4),"
             "scale integer,"
-            "market integer,"
-            # "CONSTRAINT company_pkey PRIMARY KEY (id),"
+            "market character varying(4),"
             "CONSTRAINT company_code_key PRIMARY KEY (code),"
             "CONSTRAINT company_market_fkey FOREIGN KEY (market) "
-            "REFERENCES public.market (id) MATCH SIMPLE "
+            "REFERENCES public.market (code) MATCH SIMPLE "
             "ON UPDATE NO ACTION "
             "ON DELETE NO ACTION,"
             "CONSTRAINT company_scale_fkey FOREIGN KEY (scale) "
@@ -363,6 +361,7 @@ class InitDB:
             "id bigint NOT NULL DEFAULT nextval('price_id_seq'::regclass),"
             "date date,"
             'company character varying(6) COLLATE pg_catalog."default",'
+            #'company text COLLATE pg_catalog."default",'
             "open real,"
             "high real,"
             "low real,"
@@ -374,7 +373,7 @@ class InitDB:
             "adj real,"
             '"limit" integer,'
             "CONSTRAINT price_pkey PRIMARY KEY (id), "
-            "CONSTRAINT price_date_company_key UNIQUE (date, company),"
+            "CONSTRAINT price_date_company_key UNIQUE (date, company), "
             "CONSTRAINT price_company_fkey FOREIGN KEY (company) "
             "REFERENCES public.company (code) MATCH SIMPLE "
             "ON UPDATE NO ACTION "
@@ -382,7 +381,6 @@ class InitDB:
             ")"
         )
         self.db.post(sql)
-        pass
 
     def init_price_table(self):
         company = self.sql.get_table("company")
@@ -860,8 +858,14 @@ class InitDB:
         self.insert_trades_spec_table()
         self.insert_fins_table()
 
+        self.init_price_table()
+
 
 init = InitDB()
+
+# init.make_price_table()
+# init.make_margin_table()
+
 
 # init.make_company_and_indices_table()
 # init.init_company_and_indices_table()
@@ -879,5 +883,5 @@ init = InitDB()
 # init.make_company_and_indices_table()
 # init.make_indices_price_table()
 # init.make_indices_table()
-init.make_table()
-init.init_table()
+# init.make_table()
+# init.init_table()
