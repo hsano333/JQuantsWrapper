@@ -525,96 +525,120 @@ class InitDB:
     def init_sid_date_table(self):
         datetime_from = datetime(1900, 1, 1)
         datetime_to = datetime(2100, 1, 1)
-        self.get_sid_date_table(datetime_from, datetime_to)
-
-    def get_sid_date_table(self, datetime_from, datetime_to):
-        date_df = self.sql.get_table("date")
-        sid_df = self.sql.get_table("jq_sid")
-        datetime_from_pre = datetime_from - timedelta(days=1)
-        date_from_pre_str = datetime_from_pre.strftime("%Y-%m-%d")
-        from_pre_list = date_df[date_df["date"] == date_from_pre_str]
-
-        year = datetime_from.year
-        diff = (datetime_to - datetime_from).days
-        date_list = [datetime_from + timedelta(days=i) for i in range(diff)]
-        sid_list = []
-
-        dict = {}
-        dict["date"] = datetime_from - timedelta(days=1)
-        dict["year"] = datetime_from_pre.year
-        dict["weekday"] = datetime_from_pre.weekday()
-        if len(from_pre_list) == 0:
-            print("init")
-            # 初日だけ直接いれないと計算がおかしくなる
-            dict["sid"] = 0
-            dict["week"] = 1
-            week = 1
-            sid = 1
-        else:
-            dict["sid"] = from_pre_list["sid"]
-            dict["week"] = from_pre_list["week"]
-            week = from_pre_list["week"]
-            if dict["weekday"] >= 4:
-                sid = dict["sid"] + 1
-            else:
-                sid = dict["sid"]
-
-        print(f"{from_pre_list=}")
-        return
-
-        sid_list.append(dict.copy())
-
-        year_flag = False
-        for date in date_list:
-            if date.weekday() < 5:
-                if (date.month == 1) and date.day >= 4 and year_flag:
-                    week = 1
-                    year = year + 1
-                    sid = sid + 1
-                    year_flag = False
-                elif date.weekday() == 0:
-                    sid = sid + 1
-                    week = week + 1
-                if date.month == 12:
-                    year_flag = True
-
-                dict = {}
-                dict["date"] = date
-                dict["sid"] = sid
-                dict["year"] = year
-                dict["week"] = week
-                dict["weekday"] = date.weekday()
-
-                sid_list.append(dict.copy())
-        df = pd.DataFrame(sid_list)
-        df = df[df["year"] >= 1900]
-
-        # toyota = yf.Ticker("7203.T")
-        toyota = self.jq.get_prices(code="72030")
-        toyota_df = pd.DataFrame(toyota)
-        toyota_df = toyota_df.reset_index()
-        toyota_df["Date"] = pd.to_datetime(toyota_df["Date"]).dt.date
-
-        df["date"] = pd.to_datetime(df["date"]).dt.date
-
-        tmp = toyota_df.merge(df, left_on="Date", right_on="date", how="right")
-        tmp["valid_cnt"] = 0
-        sid_min = tmp["sid"].min()
-        sid_max = tmp["sid"].max()
-
-        tmp2 = tmp[tmp["Volume"] > 0]
-        for sid in range(sid_min, sid_max + 1):
-            tmp_df = tmp2[tmp2["sid"] == sid]
-            tmp.loc[tmp["sid"] == sid, "valid_cnt"] = len(tmp_df)
-
-        sid_df = tmp[["sid", "year", "week", "valid_cnt"]]
-        sid_df = sid_df.drop_duplicates("sid")
+        # datetime_from = datetime(2024, 11, 7)
+        # datetime_to = datetime(2024, 11, 21)
+        (sid_df, date_df) = self.sql.get_sid_date_table(datetime_from, datetime_to)
         self.db.post_df(sid_df, "jq_sid")
-
-        date_df = tmp2[["date", "sid", "weekday"]]
-        date_df = toyota_df.merge(date_df, left_on="Date", right_on="date", how="inner")
-        date_df = date_df[["date", "sid", "weekday"]]
         self.db.post_df(date_df, "date")
+
+    # def get_sid_date_table(self, datetime_from, datetime_to):
+    #    date_df = self.sql.get_table("date")
+    #    sid_df = self.sql.get_table("jq_sid")
+    #    from_pre_list = []
+    #    datetime_from_pre = datetime_from
+    #    if datetime_from >= datetime(2020, 1, 1):
+    #        while len(from_pre_list) == 0:
+    #            datetime_from_pre = datetime_from_pre - timedelta(days=1)
+    #            from_pre_list = date_df[date_df["date"] == datetime_from_pre.date()]
+    #        from_pre_list = from_pre_list.reset_index()
+    #    # print(f"{from_pre_list=}")
+    #    # print(f"{from_pre_list.loc[0, 'sid'].item()=}")
+
+    #    year = datetime_from.year
+    #    diff = (datetime_to - datetime_from).days
+    #    date_list = [datetime_from + timedelta(days=i) for i in range(diff)]
+    #    sid_list = []
+
+    #    dict = {}
+    #    dict["date"] = datetime_from - timedelta(days=1)
+    #    dict["year"] = datetime_from_pre.year
+    #    dict["weekday"] = datetime_from_pre.weekday()
+    #    if len(from_pre_list) == 0:
+    #        # print("init")
+    #        # 初日だけ直接いれないと計算がおかしくなる
+    #        dict["sid"] = 0
+    #        dict["week"] = 1
+    #        week = 0
+    #        sid = 0
+    #    else:
+    #        dict["sid"] = from_pre_list.loc[0, "sid"].item()
+    #        # print(f"{sid_df=}")
+    #        # print(f"{dict['sid']=}")
+    #        # sid_df = sid_df[sid_df["sid"] == dict["sid"]]
+    #        # print(f"{sid_df=}")
+    #        # print(f"{sid_df[0, 'week']=}")
+    #        # week_tmp = sid_df[sid_df["sid"] == dict["sid"], "week"]
+    #        # print(f"{week_tmp=}")
+    #        tmp_sid_df = sid_df[sid_df["sid"] == dict["sid"]]
+    #        tmp_sid_df = tmp_sid_df.reset_index()
+    #        # print(f"{tmp_sid_df=}")
+    #        dict["week"] = tmp_sid_df.loc[0, "week"].item()
+    #        # print(f'{dict["week"]=}')
+    #        week = dict["week"]
+    #        if dict["weekday"] == 0:
+    #            sid = dict["sid"] + 1
+    #        else:
+    #            sid = dict["sid"]
+
+    #    # print(f"{from_pre_list=}")
+
+    #    sid_list.append(dict.copy())
+
+    #    year_flag = False
+    #    for date in date_list:
+    #        if date.weekday() < 5:
+    #            if (date.month == 1) and date.day >= 4 and year_flag:
+    #                week = 1
+    #                year = year + 1
+    #                sid = sid + 1
+    #                year_flag = False
+    #            elif date.weekday() == 0:
+    #                sid = sid + 1
+    #                week = week + 1
+    #            if date.month == 12:
+    #                year_flag = True
+
+    #            dict = {}
+    #            dict["date"] = date
+    #            dict["sid"] = sid
+    #            dict["year"] = year
+    #            dict["week"] = week
+    #            dict["weekday"] = date.weekday()
+
+    #            sid_list.append(dict.copy())
+    #    df = pd.DataFrame(sid_list)
+    #    df["date"] = df["date"].dt.date
+    #    df = df[df["date"] > datetime_from_pre.date()]
+
+    #    # toyota = yf.Ticker("7203.T")
+    #    toyota = self.jq.get_prices(code="72030")
+    #    toyota_df = pd.DataFrame(toyota)
+    #    toyota_df = toyota_df.reset_index()
+    #    toyota_df["Date"] = pd.to_datetime(toyota_df["Date"]).dt.date
+
+    #    df["date"] = pd.to_datetime(df["date"]).dt.date
+
+    #    tmp = toyota_df.merge(df, left_on="Date", right_on="date", how="right")
+    #    tmp["valid_cnt"] = 0
+    #    sid_min = tmp["sid"].min()
+    #    sid_max = tmp["sid"].max()
+
+    #    tmp2 = tmp[tmp["Volume"] > 0]
+    #    for sid in range(sid_min, sid_max + 1):
+    #        tmp_df = tmp2[tmp2["sid"] == sid]
+    #        tmp.loc[tmp["sid"] == sid, "valid_cnt"] = len(tmp_df)
+
+    #    sid_df = tmp[["sid", "year", "week", "valid_cnt"]]
+    #    sid_df = sid_df.drop_duplicates("sid")
+    #    # print(f"{sid_df=}")
+    #    # self.db.post_df(sid_df, "jq_sid")
+
+    #    date_df = tmp2[["date", "sid", "weekday"]]
+    #    date_df = toyota_df.merge(date_df, left_on="Date", right_on="date", how="inner")
+    #    date_df = date_df[["date", "sid", "weekday"]]
+    #    # print(f"{date_df=}")
+    #    # self.db.post_df(date_df, "date")
+    #    return (sid_df, date_df)
 
     def make_trades_spec_table(self):
         sql_seq = "CREATE SEQUENCE IF NOT EXISTS trades_spec_id_seq START 1"
