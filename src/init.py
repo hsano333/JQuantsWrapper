@@ -523,22 +523,47 @@ class InitDB:
         self.db.post(sql)
 
     def init_sid_date_table(self):
-        year = 1900
-        date_list = [datetime(year, 1, 2) + timedelta(days=i) for i in range(73000)]
+        datetime_from = datetime(1900, 1, 1)
+        datetime_to = datetime(2100, 1, 1)
+        self.get_sid_date_table(datetime_from, datetime_to)
+
+    def get_sid_date_table(self, datetime_from, datetime_to):
+        date_df = self.sql.get_table("date")
+        sid_df = self.sql.get_table("jq_sid")
+        datetime_from_pre = datetime_from - timedelta(days=1)
+        date_from_pre_str = datetime_from_pre.strftime("%Y-%m-%d")
+        from_pre_list = date_df[date_df["date"] == date_from_pre_str]
+
+        year = datetime_from.year
+        diff = (datetime_to - datetime_from).days
+        date_list = [datetime_from + timedelta(days=i) for i in range(diff)]
         sid_list = []
 
-        # 初日だけ直接いれないと計算がおかしくなる
         dict = {}
-        dict["date"] = datetime(year - 1, 1, 1)
-        dict["sid"] = 0
-        dict["year"] = year - 1
-        dict["week"] = 1
-        dict["weekday"] = 0
+        dict["date"] = datetime_from - timedelta(days=1)
+        dict["year"] = datetime_from_pre.year
+        dict["weekday"] = datetime_from_pre.weekday()
+        if len(from_pre_list) == 0:
+            print("init")
+            # 初日だけ直接いれないと計算がおかしくなる
+            dict["sid"] = 0
+            dict["week"] = 1
+            week = 1
+            sid = 1
+        else:
+            dict["sid"] = from_pre_list["sid"]
+            dict["week"] = from_pre_list["week"]
+            week = from_pre_list["week"]
+            if dict["weekday"] >= 4:
+                sid = dict["sid"] + 1
+            else:
+                sid = dict["sid"]
+
+        print(f"{from_pre_list=}")
+        return
 
         sid_list.append(dict.copy())
 
-        week = 1
-        sid = 1
         year_flag = False
         for date in date_list:
             if date.weekday() < 5:
