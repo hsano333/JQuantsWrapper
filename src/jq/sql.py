@@ -238,22 +238,16 @@ class SQL:
             print(f"Error insert_fins():{e}")
 
     def merge_date_loop(self, func, date_from, date_to):
-        # date_from_td = datetime.strptime(date_from, "%Y-%m-%d")
         date_to_td = datetime.strptime(date_to, "%Y-%m-%d")
-        # date_tmp = date_from_td + timedelta(days=1)
         date_tmp = datetime.strptime(date_from, "%Y-%m-%d")
         tmp = []
         cnt = 0
-        print(f"{date_to_td=}")
-        print(f"{date_tmp=}")
         while date_tmp <= date_to_td:
-            tmp_data = func(date_from=date_from)
+            tmp_data = func(date_from=datetime.strftime(date_tmp, "%Y-%m-%d"))
             if tmp_data is not None and len(tmp_data) > 0:
                 cnt = cnt + 1
                 tmp.extend(tmp_data)
             date_tmp = date_tmp + timedelta(days=1)
-            if cnt > 2:
-                break
         return tmp
 
     # 未確認
