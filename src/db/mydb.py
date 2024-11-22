@@ -133,8 +133,8 @@ class DB:
         return sql
 
     @post_df_decorator
-    def post_df(self, sql, table):
-        return (sql, table)
+    def post_df(self, df, table):
+        return (df, table)
 
     @get_decorator
     def get(self, sql):

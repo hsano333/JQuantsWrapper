@@ -529,16 +529,16 @@ class InitDB:
 
         # 初日だけ直接いれないと計算がおかしくなる
         dict = {}
-        dict["date"] = datetime(year, 1, 1)
-        dict["sid"] = 1
-        dict["year"] = 1900
+        dict["date"] = datetime(year - 1, 1, 1)
+        dict["sid"] = 0
+        dict["year"] = year - 1
         dict["week"] = 1
         dict["weekday"] = 0
 
         sid_list.append(dict.copy())
 
         week = 1
-        sid = 2
+        sid = 1
         year_flag = False
         for date in date_list:
             if date.weekday() < 5:
@@ -562,14 +562,17 @@ class InitDB:
 
                 sid_list.append(dict.copy())
         df = pd.DataFrame(sid_list)
+        df = df[df["year"] >= 1900]
 
-        toyota = yf.Ticker("7203.T")
-        toyota_df = pd.DataFrame(toyota.history(period="max"))
+        # toyota = yf.Ticker("7203.T")
+        toyota = self.jq.get_prices(code="72030")
+        toyota_df = pd.DataFrame(toyota)
         toyota_df = toyota_df.reset_index()
         toyota_df["Date"] = pd.to_datetime(toyota_df["Date"]).dt.date
+
         df["date"] = pd.to_datetime(df["date"]).dt.date
 
-        tmp = toyota_df.merge(df, left_on="Date", right_on="date", how="left")
+        tmp = toyota_df.merge(df, left_on="Date", right_on="date", how="right")
         tmp["valid_cnt"] = 0
         sid_min = tmp["sid"].min()
         sid_max = tmp["sid"].max()
@@ -583,7 +586,9 @@ class InitDB:
         sid_df = sid_df.drop_duplicates("sid")
         self.db.post_df(sid_df, "jq_sid")
 
-        date_df = tmp[["date", "sid", "weekday"]]
+        date_df = tmp2[["date", "sid", "weekday"]]
+        date_df = toyota_df.merge(date_df, left_on="Date", right_on="date", how="inner")
+        date_df = date_df[["date", "sid", "weekday"]]
         self.db.post_df(date_df, "date")
 
     def make_trades_spec_table(self):
@@ -862,6 +867,7 @@ class InitDB:
 
 
 init = InitDB()
+init.init_sid_date_table()
 
 # init.make_price_table()
 # init.make_margin_table()
