@@ -868,6 +868,48 @@ class InitDB:
         )
         self.db.post(sql)
 
+    def make_forecast_table(self):
+        sql_seq = "CREATE SEQUENCE IF NOT EXISTS forecast_id_seq START 1"
+
+        self.db.post(sql_seq)
+        sql = (
+            "CREATE TABLE IF NOT EXISTS public.forecast "
+            "("
+            "id bigint NOT NULL, "
+            "update_date date NOT NULL, "
+            "forecast_date date NOT NULL, "
+            "day_rised boolean, "
+            "day_valid boolean, "
+            "day_high integer, "
+            "day_low integer, "
+            "day_close integer, "
+            "one_week_rised boolean, "
+            "one_week_valid boolean, "
+            "one_week_high integer, "
+            "one_week_low integer, "
+            "one_week_close integer, "
+            "two_week_rised boolean, "
+            "two_week_valid boolean, "
+            "two_week_high integer, "
+            "two_week_low integer, "
+            "two_week_close integer, "
+            "three_week_rised boolean, "
+            "three_week_valid boolean, "
+            "three_week_high integer, "
+            "three_week_low integer, "
+            "three_week_close integer, "
+            "four_week_rised boolean, "
+            "four_week_valid boolean, "
+            "four_week_high integer, "
+            "four_week_low integer, "
+            "four_week_close integer, "
+            "CONSTRAINT forecast_pkey PRIMARY KEY (id) "
+            ") "
+        )
+        self.db.post(sql)
+
+        pass
+
     def insert_fins_table(self):
         # finans = self.jq.get_fins_statements(code=code)
         company = self.sql.get_table("company")
@@ -900,6 +942,8 @@ class InitDB:
         # 先にテーブルを作成すると、カラムが全一致していないとエラーになるため使わない
         self.make_fins_table()
 
+        self.make_forecast_table()
+
     def init_table(self):
         self.init_market_table()
         self.init_indices_table()
@@ -916,7 +960,8 @@ class InitDB:
 
 
 init = InitDB()
-init.init_sid_date_table()
+init.make_forecast_table()
+# init.init_sid_date_table()
 
 # init.make_price_table()
 # init.make_margin_table()
