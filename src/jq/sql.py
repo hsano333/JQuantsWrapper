@@ -237,6 +237,9 @@ class SQL:
         except Exception as e:
             print(f"Error insert_fins():{e}")
 
+    def insert_forecast(self, code="", date_from="", date_to=""):
+        pass
+
     def merge_date_loop(self, func, date_from, date_to):
         date_to_td = datetime.strptime(date_to, "%Y-%m-%d")
         date_tmp = datetime.strptime(date_from, "%Y-%m-%d")

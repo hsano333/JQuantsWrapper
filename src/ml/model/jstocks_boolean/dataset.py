@@ -46,13 +46,13 @@ def change_price(val, adj):
             break
         adj_val *= adj_value
     if adj_val != 1:
-        val["open"] = val["open"] / adj_val
-        val["high"] = val["high"] / adj_val
-        val["low"] = val["low"] / adj_val
-        val["close"] = val["close"] / adj_val
-        val["volume"] = val["volume"] / adj_val
-        tmp = tmp / adj_val
-        val["limit"] = get_limit(val["volume"] / adj_val)
+        val["open"] = val["open"] * adj_val
+        val["high"] = val["high"] * adj_val
+        val["low"] = val["low"] * adj_val
+        val["close"] = val["close"] * adj_val
+        val["volume"] = val["volume"] * adj_val
+        tmp = tmp * adj_val
+        val["limit"] = get_limit(val["tmp"] * adj_val)
 
     val["is_rised"] = ((val["close"] - tmp) / tmp) >= 0.01
     val["is_falled"] = ((val["close"] - tmp) / tmp) <= -0.01
@@ -118,7 +118,7 @@ def change_rolling(val):
 
 
 class JStocksDataset(Dataset):
-    TEST_SIZE = 150
+    TEST_SIZE = 100
 
     def __init__(self):
         # iris = load_iris()
@@ -127,8 +127,9 @@ class JStocksDataset(Dataset):
         jq = JQuantsWrapper()
         sql = SQL(db, jq)
 
+        self.dataset_name = f"dataset_{code}"
         # id = sql.get_company_id(code)
-        where = f"where company = {code}"
+        where = f"where company = '{code}' ORDER BY date ASC  "
         prices = sql.get_table("price", where)
 
         prices["turnover"] = prices.apply(change_turnover, axis=1)
@@ -137,16 +138,19 @@ class JStocksDataset(Dataset):
         adj = prices[prices["adj"] != 1]
         # print(f"{prices=}")
         # print(f"{adj=}")
+        print(f"No.1:{prices[100:120]=}")
         prices = prices.apply(change_price, axis=1, adj=adj)
 
         prices = add_rolling(prices, 25)
         prices = add_rolling(prices, 75)
         prices = add_rolling(prices, 200)
         prices = prices.apply(change_rolling, axis=1)
+        print(f"{prices=}")
+        print(f"No.2:{prices[100:120]=}")
 
         # 最後に不要なカラムを削除
         prices = prices.drop(
-            ["code", "date", "company", "upper_l", "low_l", "adj", "limit", "tmp"],
+            ["date", "company", "upper_l", "low_l", "adj", "limit", "tmp", "id"],
             axis=1,
         )
 
@@ -158,40 +162,62 @@ class JStocksDataset(Dataset):
             target_indices, size=len(target_indices) // 2, replace=False
         )
 
+        print(f"{prices.shape=}")
         prices = prices.drop(half_indices).reset_index(drop=True)
+        prices = prices.dropna()
 
-        print(f"{prices=}")
+        print(f"{prices.shape=}")
         # prices = prices[200:]
         # tmp_label = prices[201:, ["is_rised", "is_zero", "is_falled"]]
         print(f"{prices.iloc[200:]=}")
-        tmp_label = prices.iloc[201:]
+        # tmp_label = prices.iloc[201:]
         # tmp_label = tmp_label[["is_rised", "is_zero", "is_falled"]]
-        tmp_label = tmp_label[["is_rised", "is_zero", "is_falled"]]
-        print(f"{tmp_label=}")
+        tmp_label = prices[["is_rised", "is_zero", "is_falled"]]
+        print(f"No.1 {tmp_label.shape=}")
         tmp_label = tmp_label[~tmp_label["is_zero"]]
+        # tmp_label = tmp_label[["is_rised", "is_falled"]]
         tmp_label = tmp_label[["is_rised", "is_falled"]]
+        # tmp_label = tmp_label.dropna()
+        # tmp_label = tmp_label.iloc[201:]
         # tmp_label = prices.iloc[201:, ["is_rised", "is_zero", "is_falled"]]
-        prices = prices.iloc[200:-1]
+        print(f"No.2 {prices.shape=}")
         prices = prices[~prices["is_zero"]]
+        print(f"No.3 {prices.shape=}")
         # tmp_label = prices["is_rised"]
         prices = prices.drop(["is_rised", "is_zero", "is_falled"], axis=1)
         prices["volume"] = (prices["volume"] - prices["volume"].mean()) / prices[
             "volume"
         ].std()
+        # prices = prices.iloc[200:-1]
+        print(f"before {prices.shape=}")
+        # prices = prices.dropna()
+        print(f"after {prices.shape=}")
+        print(f"after {prices[prices.isnull()]=}")
+        is_tmp_null = prices[prices.isnull()]
+        print(f"after {is_tmp_null.shape=}")
+        print(f"{prices.iloc[0:10, 0:8]}")
+        print(f"{prices.iloc[0:10, 8:15]}")
+        print(f"{prices.iloc[0:10, 15:]}")
 
         self.data = torch.tensor(prices[: -self.TEST_SIZE].values.astype(np.float32))
         self.label = torch.tensor(
             tmp_label.iloc[: -self.TEST_SIZE].values.astype(np.float32)
         )
         print(f"{prices.shape=}")
+        print(f"{tmp_label.shape=}")
         print(f"{self.data.shape=}")
         print(f"{self.label.shape=}")
+        # print(f"{self.data=}")
+        # print(f"{self.label=}")
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, ndx):
         return (self.data[ndx], self.label[ndx])
+
+    def get_name(self):
+        return self.dataset_name
 
     def get_eval_data(self):
         return (self.data[-self.TEST_SIZE :], self.label[-self.TEST_SIZE :])

@@ -55,7 +55,9 @@ class BaseManager:
         )
 
     def get_path(self):
-        return os.path.dirname(__file__)
+        dataset_name = self.dataset.get_name()
+        path = os.path.join(os.path.dirname(__file__), dataset_name)
+        return path
 
     def compute_batch_loss(
         self,
