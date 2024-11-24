@@ -16,12 +16,9 @@ from .model import JStocksModel
 # importlib.reload(ml.model.jstocks_boolean.model)
 
 METRICS_LABEL1_NDX = 0
-METRICS_LABEL2_NDX = 1
-METRICS_PRED1_NDX = 2
-METRICS_PRED2_NDX = 3
-METRICS_LOSS1_NDX = 4
-METRICS_LOSS2_NDX = 5
-METRICS_SIZE = 6
+METRICS_PRED1_NDX = 1
+METRICS_LOSS1_NDX = 2
+METRICS_SIZE = 3
 # METRICS_LOSS1_NDX = 4
 # METRICS_LOSS2_NDX = 5
 
@@ -40,8 +37,8 @@ class BaseManager:
         # 損失関数
         # weights = torch.tensor([0.3, 0.7])
         # self.criterion = nn.BCEWithLogitsLoss(weight=weights)
-        # self.criterion = nn.BCEWithLogitsLoss()
-        self.criterion = torchvision.ops.sigmoid_focal_loss
+        self.criterion = nn.BCEWithLogitsLoss()
+        # self.criterion = torchvision.ops.sigmoid_focal_loss
 
     def get_dataset(self):
         return self.dataset
@@ -69,6 +66,8 @@ class BaseManager:
         batch_max_size,
     ):
         (data, label) = data_label
+        # print(f"{label.shape=}")
+        # print(f"{label=}")
         data = data.to(device)
         label = label.to(device)
         prediction = model(data)
@@ -76,7 +75,7 @@ class BaseManager:
         # print(f"{prediction.shape=}")
         # print(f"{label.shape=}")
         # print(f"{label[:,0].shape=}")
-        loss = self.criterion(inputs=prediction, targets=label, alpha=0.5)
+        loss = self.criterion(prediction, label)
         # print(f"{loss=}")
         # loss1 = self.criterion(inputs=prediction, targets=label[:, 0], alpha=0.1)
         # loss2 = self.criterion(inputs=prediction, targets=label[:, 1], alpha=0.1)
@@ -86,22 +85,21 @@ class BaseManager:
 
         start_ndx = batch_ndx * batch_max_size
         end_ndx = start_ndx + label.size(0)
+        # print(f"{start_ndx=}, {end_ndx=}")
 
         with torch.no_grad():
             tmp_prediction = prediction.detach()
             # print(f"{tmp_prediction=}")
-            metrics[METRICS_LABEL1_NDX : METRICS_LABEL2_NDX + 1, start_ndx:end_ndx] = (
-                label[:, [0, 1]].detach().T
-            )
-            metrics[METRICS_PRED1_NDX : METRICS_PRED2_NDX + 1, start_ndx:end_ndx] = (
-                tmp_prediction[:, [0, 1]].T
-            )
-            metrics[METRICS_LOSS1_NDX : METRICS_LOSS2_NDX + 1, start_ndx:end_ndx] = (
-                loss.detach().T
-            )
+            # print(f"{label.detach()=}")
+            # print(f"{tmp_prediction=}")
+            # label =
+            # result_prediction = torch.max(tmp_prediction, 1)[1]
+            metrics[METRICS_LABEL1_NDX, start_ndx:end_ndx] = label[:, 0].detach()
+            metrics[METRICS_PRED1_NDX, start_ndx:end_ndx] = tmp_prediction[:, 0]
+            metrics[METRICS_LOSS1_NDX, start_ndx:end_ndx] = loss.detach()
             # ratio1 = len(tmp_prediction[:, 1] < 0.1) / tmp_prediction.shape[0]
             # ratio2 = len(tmp_prediction[:, 1] < 0.1) / tmp_prediction.shape[0]
-            offset = 1
+            # offset = 1
             # if ratio1 >= 0.9 or ratio1 <= 0.1:
             # offset = offset * 2
             # if ratio2 >= 0.9 or ratio2 <= 0.1:
@@ -110,92 +108,58 @@ class BaseManager:
             # metrics[METRICS_LOSS1_NDX, start_ndx:end_ndx] = loss[:, 0].detach()
             # metrics[METRICS_LOSS2_NDX, start_ndx:end_ndx] = loss[:, 1].detach()
 
-        # return loss * offset
-        return torch.sum(loss) * offset / 2
+        return loss
+        # return torch.sum(loss) * offset / 2
 
     def evaluate(self, metrics_base):
         threshold_val = 0.5
         threshold_label_val = 0.5
 
-        tmp1 = metrics_base[:, metrics_base[METRICS_PRED1_NDX] >= 0]
-        tmp11 = metrics_base[:, metrics_base[METRICS_PRED1_NDX] < 0]
-        tmp2 = metrics_base[:, metrics_base[METRICS_PRED2_NDX] >= 0]
-        tmp22 = metrics_base[:, metrics_base[METRICS_PRED2_NDX] < 0]
-        metrics = tmp1[:, tmp1[METRICS_PRED2_NDX] < 0]
-        metrics2 = tmp2[:, tmp2[METRICS_PRED1_NDX] < 0]
-        # tmp_bool = tmp1 ^ tmp2
-        # metrics = metrics_base[:, tmp_bool]
+        metrics_pos = metrics_base[:, metrics_base[METRICS_LABEL1_NDX] >= threshold_val]
+        metrics_neg = metrics_base[:, metrics_base[METRICS_LABEL1_NDX] < threshold_val]
 
-        print(f"{metrics_base.shape=}")
-        print(f"{tmp1.shape=}")
-        print(f"{tmp11.shape=}")
-        print(f"{tmp2.shape=}")
-        print(f"{tmp22.shape=}")
-        print(f"{metrics.shape=}")
-        print(f"{metrics2.shape=}")
-        # print(f"{metrics=}")
-        # print(f"{metrics2=}")
-        # print(f"{metrics_base[METRICS_PRED1_NDX]=}")
-        # print(f"{metrics_base[METRICS_PRED2_NDX]=}")
+        label_pos_count = metrics_pos.shape[1]
+        label_neg_count = metrics_neg.shape[1]
+        sample_cnt = label_pos_count + label_neg_count
 
-        rised_true_predict = metrics[:, metrics[METRICS_PRED1_NDX] >= threshold_val]
-        rised_false_predict = metrics[:, metrics[METRICS_PRED1_NDX] < threshold_val]
-        falled_true_predict = metrics[:, metrics[METRICS_PRED2_NDX] >= threshold_val]
-        falled_false_predict = metrics[:, metrics[METRICS_PRED2_NDX] < threshold_val]
+        true_pos = metrics_pos[:, metrics_pos[METRICS_PRED1_NDX] >= threshold_val]
+        true_neg = metrics_neg[:, metrics_neg[METRICS_PRED1_NDX] < threshold_val]
 
-        sample_cnt = metrics.shape[1]
+        true_pos_num = true_pos.shape[1]
+        false_pos_num = label_pos_count - true_pos_num
+        true_neg_num = true_neg.shape[1]
+        false_neg_num = label_neg_count - true_neg_num
+        print(f"{label_pos_count=}, {label_neg_count=}")
+        print(f"{true_pos_num=}, {false_pos_num=}")
+        print(f"{true_neg_num=}, {false_neg_num=}")
 
-        rised_true_num = rised_true_predict.shape[1]
-        rised_false_num = rised_false_predict.shape[1]
-        falled_true_num = falled_true_predict.shape[1]
-        falled_false_num = falled_false_predict.shape[1]
-
-        rised_true_ok = rised_true_predict[
-            :, rised_true_predict[METRICS_LABEL1_NDX] >= threshold_label_val
-        ]
-        rised_false_ok = rised_false_predict[
-            :, rised_false_predict[METRICS_LABEL1_NDX] < threshold_label_val
-        ]
-        falled_true_ok = falled_true_predict[
-            :, falled_true_predict[METRICS_LABEL2_NDX] >= threshold_label_val
-        ]
-        falled_false_ok = falled_false_predict[
-            :, falled_false_predict[METRICS_LABEL2_NDX] < threshold_label_val
-        ]
-
-        rised_true_ok_num = rised_true_ok.shape[1]
-        rised_false_ok_num = rised_false_ok.shape[1]
-        falled_true_ok_num = falled_true_ok.shape[1]
-        falled_false_ok_num = falled_false_ok.shape[1]
-
-        rised_f1 = (
-            (
-                100
-                * (rised_true_ok_num + rised_false_ok_num)
-                / (rised_true_num + rised_false_num)
-            )
-            if (rised_true_num + rised_false_num) > 0
+        accuracy = (
+            (true_pos_num + true_neg_num) / (sample_cnt) if sample_cnt != 0 else 0
+        )
+        recall = (
+            true_pos_num / (true_pos_num + false_neg_num)
+            if (true_pos_num + false_neg_num) != 0
             else 0
         )
-        falled_f1 = (
-            (
-                100
-                * (falled_true_ok_num + falled_false_ok_num)
-                / (falled_true_num + falled_false_num)
-            )
-            if (falled_true_num + falled_false_num) > 0
+        precision = (
+            true_pos_num / (true_pos_num + false_pos_num)
+            if (true_pos_num + false_pos_num) != 0
             else 0
         )
+
+        f1 = (
+            2 * (precision * recall) / (precision + recall)
+            if (precision + recall) != 0
+            else 0
+        )
+        print(f"{accuracy=}, {f1=}")
 
         return {
-            "rised_f1": rised_f1,
-            "falled_f1": falled_f1,
-            "ALL": (rised_f1 + falled_f1) / 2,
-            "rised_true_num": rised_true_num,
-            "rised_false_predict": rised_false_num,
-            "metrics.shape": metrics.shape[1],
-            "rised_true_ok_num": rised_true_ok_num,
-            "rised_false_ok_num": rised_false_ok_num,
+            "accuracy": accuracy,
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+            "ALL": 100 * f1,
         }
 
     def get_metrics_size(self):

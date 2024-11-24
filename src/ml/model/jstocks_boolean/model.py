@@ -5,7 +5,7 @@ from enum import IntEnum
 
 D_in = 22
 H = 100
-D_out = 2
+D_out = 1
 METRICS_LABEL_NDX = 0
 METRICS_PRED_NDX = 1
 METRICS_LOSS_NDX = 2
