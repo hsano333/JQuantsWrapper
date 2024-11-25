@@ -8,6 +8,13 @@ from enum import IntEnum
 
 from .dataset import JStocksDataset
 from .model import JStocksModel
+from .setting import MODEL_MODE
+from .setting import get_mode
+
+METRICS_LABEL1_NDX = 0
+METRICS_PRED1_NDX = 1
+METRICS_LOSS1_NDX = 2
+METRICS_SIZE = 3
 
 # import .model
 
@@ -15,12 +22,12 @@ from .model import JStocksModel
 
 # importlib.reload(ml.model.jstocks_boolean.model)
 
-METRICS_LABEL1_NDX = 0
-METRICS_PRED1_NDX = 1
-METRICS_LOSS1_NDX = 2
-METRICS_SIZE = 3
+
 # METRICS_LOSS1_NDX = 4
 # METRICS_LOSS2_NDX = 5
+
+SAVED_MODEL_NAME = "learned_model.pth"
+SAVED_TMP_MODEL_NAME = "tmp_learned_model.pth"
 
 
 class Diff(IntEnum):
@@ -37,8 +44,18 @@ class BaseManager:
         # 損失関数
         # weights = torch.tensor([0.3, 0.7])
         # self.criterion = nn.BCEWithLogitsLoss(weight=weights)
-        self.criterion = nn.BCEWithLogitsLoss()
+
+        if get_mode() == MODEL_MODE.MODE_RISED or get_mode() == MODEL_MODE.MODE_VALID:
+            self.criterion = nn.BCEWithLogitsLoss()
+        elif (
+            get_mode() == MODEL_MODE.MODE_VALUE_HIGH
+            or get_mode() == MODEL_MODE.MODE_VALUE_LOW
+        ):
+            self.criterion = nn.MSELoss()
         # self.criterion = torchvision.ops.sigmoid_focal_loss
+
+    def get_manager(self):
+        return self.manager
 
     def get_dataset(self):
         return self.dataset
@@ -51,9 +68,31 @@ class BaseManager:
             self.model.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-8
         )
 
+    def get_re_pattern(self):
+        path = r"dataset_\d{5}"
+        return path
+
+    def get_re_base_path(self):
+        # path = r"ml/model/jstocks_boolean/dataset_\d{5}/*/" + SAVED_MODEL_NAME
+        path = "ml/model/jstocks_boolean/dataset_*/*/" + SAVED_MODEL_NAME
+        return path
+
+    def get_replaced_path(self, code):
+        path = r"ml/model/jstocks_boolean/dataset_*****/*/" + SAVED_MODEL_NAME
+        return path.replace("*****", code)
+        # path = "ml/model/jstocks_boolean/dataset_*/*/" + SAVED_MODEL_NAME
+        return path
+
+    # SAVED_MODEL_NAME = "learned_model.pth"
+    def get_tmp_model_name(self):
+        return SAVED_TMP_MODEL_NAME
+
+    def get_model_name(self):
+        return SAVED_MODEL_NAME
+
     def get_path(self):
         dataset_name = self.dataset.get_name()
-        path = os.path.join(os.path.dirname(__file__), dataset_name)
+        path = os.path.join(os.path.dirname(__file__), dataset_name, get_mode().value)
         return path
 
     def compute_batch_loss(

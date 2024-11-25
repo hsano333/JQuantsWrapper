@@ -1,6 +1,9 @@
 from sklearn.datasets import load_iris
 from torch.utils.data import Dataset
 from jq.sql import get_limit
+
+from .setting import MODEL_MODE
+from .setting import get_mode
 import torch
 import numpy as np
 import pandas as pd
@@ -146,28 +149,48 @@ class JStocksDataset(Dataset):
             axis=1,
         )
 
-        condition = prices["is_rised"] < 0.01
-        target_indices = prices[condition].index
+        # condition = prices["is_zero"]
+        # target_indices = prices[condition].index
 
-        np.random.seed(42)  # 再現性のために乱数シードを設定（必要に応じて変更）
-        half_indices = np.random.choice(
-            target_indices, size=len(target_indices) // 2, replace=False
-        )
+        print(f"No.0:{prices.shape=}")
+        print(f'{prices["is_zero"].sum()}')
+        print(f'{prices["is_rised"].sum()}')
+        print(f'{prices["is_falled"].sum()}')
+        # np.random.seed(42)  # 再現性のために乱数シードを設定（必要に応じて変更）
+        # half_indices = np.random.choice(
+        #     target_indices, size=len(target_indices) // 2, replace=False
+        # )
 
-        prices = prices.drop(half_indices).reset_index(drop=True)
+        # prices = prices.drop(half_indices).reset_index(drop=True)
         prices = prices.dropna()
+        print(f"No.1:{prices.shape=}")
 
-        tmp_label = prices[["is_rised", "is_zero", "is_falled"]]
-        tmp_label = tmp_label[~tmp_label["is_zero"]]
-        tmp_label = tmp_label[["is_rised"]]
-        prices = prices[~prices["is_zero"]]
-        prices = prices.drop(["is_rised", "is_zero", "is_falled"], axis=1)
+        # tmp_label = prices[["is_rised", "is_zero", "is_falled"]]
+        # print(f"No.2:{tmp_label.shape=}")
+
+        if get_mode() == MODEL_MODE.MODE_RISED:
+            prices = prices[~prices["is_zero"]]
+            tmp_label = prices[["is_rised"]]
+        elif get_mode() == MODEL_MODE.MODE_VALID:
+            tmp_label = prices[["is_zero"]]
+        elif get_mode() == MODEL_MODE.MODE_VALUE_HIGH:
+            prices = prices[~prices["is_zero"]]
+            tmp_label = prices[["high"]]
+        elif get_mode() == MODEL_MODE.MODE_VALUE_LOW:
+            prices = prices[~prices["is_zero"]]
+            tmp_label = prices[["low"]]
+        print(f"No.3:{tmp_label.shape=}")
+
+        prices = prices.drop(["is_rised", "is_zero"], axis=1)
         prices["volume"] = (prices["volume"] - prices["volume"].mean()) / prices[
             "volume"
         ].std()
+        print(f"No.4:{prices.shape=}")
 
         prices = prices[:-1]
         tmp_label = tmp_label[1:]
+        print(f"No.5:{prices.shape=}")
+        print(f"No.5:{tmp_label.shape=}")
 
         self.data = torch.tensor(prices[: -self.TEST_SIZE].values.astype(np.float32))
         self.label = torch.tensor(
@@ -185,7 +208,7 @@ class JStocksDataset(Dataset):
         print(f"{self.label.shape=}")
         print(f"{self.eval_data.shape=}")
         print(f"{self.eval_label.shape=}")
-        print(f"{self.eval_label=}")
+        # print(f"{self.eval_label=}")
 
     def __len__(self):
         return len(self.data)
