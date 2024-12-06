@@ -237,7 +237,12 @@ class SQL:
         except Exception as e:
             print(f"Error insert_fins():{e}")
 
-    def insert_forecast(self, code="", date_from="", date_to=""):
+    def insert_forecast(self, code, data, date, mode):
+        sql = f"select * from forecast where code ={code} and date >= {date}"
+        sql_df = self.db.get_df(sql)
+
+        updated_data = sql_df.merge(data, left_on="date", right_on="date", how="inner")
+
         pass
 
     def merge_date_loop(self, func, date_from, date_to):
@@ -478,9 +483,13 @@ class SQL:
         df["date"] = pd.to_datetime(df["date"]).dt.date
 
         tmp = toyota_df.merge(df, left_on="Date", right_on="date", how="right")
+        if tmp.empty:
+            return (None, None)
         tmp["valid_cnt"] = 0
         sid_min = tmp["sid"].min()
         sid_max = tmp["sid"].max()
+
+        print(f"{sid_min=}, {sid_max=}, {tmp=}")
 
         tmp2 = tmp[tmp["Volume"] > 0]
         for sid in range(sid_min, sid_max + 1):

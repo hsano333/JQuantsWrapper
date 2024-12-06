@@ -501,18 +501,14 @@ class InitDB:
         self.db.post(sql)
 
     def make_date_table(self):
-        sql_seq = "CREATE SEQUENCE IF NOT EXISTS date_id_seq START 1"
-        self.db.post(sql_seq)
         sql = (
             "CREATE TABLE IF NOT EXISTS public.date "
             "( "
-            "id integer NOT NULL DEFAULT nextval('date_id_seq'::regclass), "
             "date date NOT NULL, "
             "sid integer NOT NULL, "
             "weekday integer NOT NULL, "
             "is_saved boolean DEFAULT false, "
-            "CONSTRAINT date_pkey PRIMARY KEY (id), "
-            "CONSTRAINT date_sid_weekday_key UNIQUE (sid, weekday),  "
+            "CONSTRAINT date_pkey PRIMARY KEY (date), "
             "CONSTRAINT date_sid_fkey FOREIGN KEY (sid) "
             "REFERENCES public.jq_sid (sid) MATCH SIMPLE "
             "ON UPDATE NO ACTION "
@@ -528,6 +524,12 @@ class InitDB:
         # datetime_from = datetime(2024, 11, 7)
         # datetime_to = datetime(2024, 11, 21)
         (sid_df, date_df) = self.sql.get_sid_date_table(datetime_from, datetime_to)
+
+        forecast_day = date_df["date"]
+        forecast_sid = date_df["sid"].drop_duplicates()
+
+        self.db.post_df(forecast_day, "forecast_day")
+        self.db.post_df(forecast_sid, "forecast_sid")
         self.db.post_df(sid_df, "jq_sid")
         self.db.post_df(date_df, "date")
 
@@ -868,47 +870,57 @@ class InitDB:
         )
         self.db.post(sql)
 
-    def make_forecast_table(self):
-        sql_seq = "CREATE SEQUENCE IF NOT EXISTS forecast_id_seq START 1"
-
-        self.db.post(sql_seq)
+    def make_forecast_date_table(self):
         sql = (
-            "CREATE TABLE IF NOT EXISTS public.forecast "
+            "CREATE TABLE IF NOT EXISTS public.forecast_day "
             "("
-            "id bigint NOT NULL, "
-            "update_date date NOT NULL, "
-            "forecast_date date NOT NULL, "
-            "day_rised boolean, "
-            "day_valid boolean, "
-            "day_high integer, "
-            "day_low integer, "
-            "day_close integer, "
-            "one_week_rised boolean, "
-            "one_week_valid boolean, "
-            "one_week_high integer, "
-            "one_week_low integer, "
-            "one_week_close integer, "
-            "two_week_rised boolean, "
-            "two_week_valid boolean, "
-            "two_week_high integer, "
-            "two_week_low integer, "
-            "two_week_close integer, "
-            "three_week_rised boolean, "
-            "three_week_valid boolean, "
-            "three_week_high integer, "
-            "three_week_low integer, "
-            "three_week_close integer, "
-            "four_week_rised boolean, "
-            "four_week_valid boolean, "
-            "four_week_high integer, "
-            "four_week_low integer, "
-            "four_week_close integer, "
-            "CONSTRAINT forecast_pkey PRIMARY KEY (id) "
+            "date date NOT NULL, "
+            "updated_at date, "
+            "day_rised real, "
+            "day_valid real, "
+            "day_high real, "
+            "day_low real, "
+            "day_close real, "
+            "CONSTRAINT forecast_day_pkey PRIMARY KEY (date) "
             ") "
         )
         self.db.post(sql)
 
-        pass
+    def make_forecast_sid_table(self):
+        sql = (
+            "CREATE TABLE IF NOT EXISTS public.forecast_sid "
+            "("
+            "updated_at date, "
+            "sid int NOT NULL, "
+            "one_week_rised real, "
+            "one_week_valid real, "
+            "one_week_high real, "
+            "one_week_low real, "
+            "one_week_close real, "
+            "two_week_rised real, "
+            "two_week_valid real, "
+            "two_week_high real, "
+            "two_week_low real, "
+            "two_week_close real, "
+            "three_week_rised real, "
+            "three_week_valid real, "
+            "three_week_high real, "
+            "three_week_low real, "
+            "three_week_close real, "
+            "four_week_rised real, "
+            "four_week_valid real, "
+            "four_week_high real, "
+            "four_week_low real, "
+            "four_week_close real, "
+            "CONSTRAINT forecast_sid_pkey PRIMARY KEY (sid), "
+            "CONSTRAINT forecast_sid_fkey FOREIGN KEY (sid) "
+            "REFERENCES public.jq_sid (sid) MATCH SIMPLE "
+            "ON UPDATE NO ACTION "
+            "ON DELETE NO ACTION "
+            "NOT VALID "
+            ") "
+        )
+        self.db.post(sql)
 
     def insert_fins_table(self):
         # finans = self.jq.get_fins_statements(code=code)
@@ -942,7 +954,8 @@ class InitDB:
         # 先にテーブルを作成すると、カラムが全一致していないとエラーになるため使わない
         self.make_fins_table()
 
-        self.make_forecast_table()
+        self.make_forecast_date_table()
+        self.make_forecast_sid_table()
 
     def init_table(self):
         self.init_market_table()
@@ -960,7 +973,16 @@ class InitDB:
 
 
 init = InitDB()
-init.make_forecast_table()
+init.make_forecast_date_table()
+init.make_forecast_sid_table()
+init.init_sid_date_table()
+
+# init.make_forecast_date_table()
+# init.make_forecast_sid_table()
+
+# init.make_forecast_table()
+# init.make_date_table()
+# init.init_sid_date_table()
 # init.init_sid_date_table()
 
 # init.make_price_table()

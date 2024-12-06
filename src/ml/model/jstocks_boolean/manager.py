@@ -37,8 +37,8 @@ class Diff(IntEnum):
 
 
 class BaseManager:
-    def __init__(self):
-        self.dataset = JStocksDataset()
+    def __init__(self, code, mode):
+        self.dataset = JStocksDataset(code, mode)
         self.model = JStocksModel()
 
         # 損失関数
