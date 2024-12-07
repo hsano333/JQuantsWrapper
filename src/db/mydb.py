@@ -1,7 +1,8 @@
 import psycopg2
 from psycopg2.extensions import connection
 from functools import wraps
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
+# from sqlalchemy import text
 
 import os
 import pandas as pd
@@ -99,6 +100,35 @@ class DB:
         return wrapper
 
     @staticmethod
+    def update_df_decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                engine = DB().get_engine()
+                (df, sql) = func(*args, **kwargs)
+                print(f"{sql=}")
+                print(f"{df=}")
+                with engine.connect() as conn:
+                    conn.execute(text(sql), df)
+                    conn.commit()
+                # df.to_sql(
+                #     table,
+                #     engine,
+                #     if_exists="append",
+                #     index=False,
+                #     method="multi",
+                #     chunksize=5000,
+                # )
+                # 念の為
+                engine.dispose()
+
+                return True
+            except Exception as e:
+                print(f"post_decorator error:{e}")
+
+        return wrapper
+
+    @staticmethod
     def get_decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -135,6 +165,10 @@ class DB:
     @post_df_decorator
     def post_df(self, df, table):
         return (df, table)
+
+    @update_df_decorator
+    def update_df(self, df, sql):
+        return (df, sql)
 
     @get_decorator
     def get(self, sql):

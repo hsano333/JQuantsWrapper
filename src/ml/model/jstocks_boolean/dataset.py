@@ -147,27 +147,34 @@ class JStocksDataset(Dataset):
         self.mode = mode
 
     def get_from_date(self, date_from):
-        print(f"{self.saved_prices.shape=}, {self.saved_prices=}")
+        print(f"{self.saved_prices.shape=}, {self.saved_prices=}, {date_from=}")
         tmp = self.saved_prices[self.saved_prices["date"] >= date_from]
-        (prices, tmp_label) = self.get_data_per_mode(tmp, self.mode)
+        (prices, tmp_label) = self.get_data_per_mode(tmp, self.mode, False)
         prices = prices.drop(["date", "is_rised", "is_zero"], axis=1)
-        print(f"{tmp.shape=}, {tmp=}")
+        # print(f"{tmp.shape=}, {tmp.iloc[-10:, 0:10]=}")
+        # print(f"{tmp.shape=}, {tmp.iloc[-10:, 10:20]=}")
+        # print(f"{tmp.shape=}, {tmp.iloc[-10:, 20:30]=}")
+        # print(f"{tmp.shape=}, {tmp.iloc[-10:, 30:]=}")
+
         print(f"{date_from=}")
         return torch.tensor(prices.values.astype(np.float32))
 
-    def get_data_per_mode(self, prices, mode):
+    def get_data_per_mode(self, prices, mode, remove=True):
         if type(mode) is str:
             mode = convert_str_to_mode(mode)
         if mode == MODEL_MODE.MODE_RISED:
-            prices = prices[~prices["is_zero"]]
+            if remove:
+                prices = prices[~prices["is_zero"]]
             tmp_label = prices[["is_rised"]]
         elif mode == MODEL_MODE.MODE_VALID:
             tmp_label = prices[["is_zero"]]
         elif mode == MODEL_MODE.MODE_VALUE_HIGH:
-            prices = prices[~prices["is_zero"]]
+            if remove:
+                prices = prices[~prices["is_zero"]]
             tmp_label = prices[["high"]]
         elif mode == MODEL_MODE.MODE_VALUE_LOW:
-            prices = prices[~prices["is_zero"]]
+            if remove:
+                prices = prices[~prices["is_zero"]]
             tmp_label = prices[["low"]]
         return (prices, tmp_label)
 

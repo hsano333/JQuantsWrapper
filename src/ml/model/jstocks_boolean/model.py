@@ -32,6 +32,7 @@ class JStocksModel(nn.Module):
 
     # @torch.compile
     def forward(self, x):
+        print("model forward")
         x = F.relu(self.linear1(x))
         x = F.relu(self.linear2(x))
         x = F.relu(self.linear3(x))
