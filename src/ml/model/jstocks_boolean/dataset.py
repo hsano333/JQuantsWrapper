@@ -1,9 +1,10 @@
+from enum import Enum
 from sklearn.datasets import load_iris
 from torch.utils.data import Dataset
 from jq.sql import get_limit
 
-from .setting import MODEL_MODE
-from .setting import convert_str_to_mode
+# from .manager import MODEL_MODE
+# from .manager import convert_str_to_mode
 
 # from .manimport get_mode
 import torch
@@ -15,6 +16,16 @@ from db.mydb import DB
 from jq.jquants import JQuantsWrapper
 from jq.sql import SQL
 import jq.utility as utility
+
+
+class MODEL_MODE(Enum):
+    MODE_RISED = "rised"
+    MODE_VALID = "valid"
+    MODE_VALUE_HIGH = "high"
+    MODE_VALUE_LOW = "low"
+
+
+# MODE = MODEL_MODE.MODE_VALID
 
 
 def change_turnover(val):
@@ -132,7 +143,7 @@ class JStocksDataset(Dataset):
 
         # if mode is not None:
         # mode = get_mode()
-        self.mode = mode
+        self.mode = self.convert_str_to_mode(mode)
         self.code = code
         self.load(code, self.mode)
 
@@ -161,8 +172,10 @@ class JStocksDataset(Dataset):
         return torch.tensor(prices.values.astype(np.float32))
 
     def get_data_per_mode(self, prices, mode, remove=True):
+        print(f"{mode=}")
         if type(mode) is str:
-            mode = convert_str_to_mode(mode)
+            mode = self.convert_str_to_mode(mode)
+        print(f"{mode=}")
         if mode == MODEL_MODE.MODE_RISED:
             if remove:
                 prices = prices[~prices["is_zero"]]
@@ -305,3 +318,17 @@ class JStocksDataset(Dataset):
     def get_eval_data(self):
         return (self.eval_data, self.eval_label)
         # return (self.data[-self.TEST_SIZE :], self.label[-self.TEST_SIZE :])
+
+    def get_mode_enum(self):
+        return MODEL_MODE
+
+    def convert_str_to_mode(self, mode):
+        if mode == MODEL_MODE.MODE_RISED.value:
+            return MODEL_MODE.MODE_RISED
+        elif mode == MODEL_MODE.MODE_VALID.value:
+            return MODEL_MODE.MODE_VALID
+        elif mode == MODEL_MODE.MODE_VALUE_HIGH.value:
+            return MODEL_MODE.MODE_VALUE_HIGH
+        elif mode == MODEL_MODE.MODE_VALUE_LOW.value:
+            return MODEL_MODE.MODE_VALUE_LOW
+        return None

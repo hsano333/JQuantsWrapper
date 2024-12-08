@@ -1,4 +1,5 @@
 import os
+from enum import Enum
 import importlib
 import torch
 import torchvision
@@ -8,10 +9,7 @@ from enum import IntEnum
 
 from .dataset import JStocksDataset
 from .model import JStocksModel
-from .setting import MODEL_MODE
-
-# from .setting import get_mode
-from .setting import convert_str_to_mode
+# from .dataset import MODEL_MODE
 
 METRICS_LABEL1_NDX = 0
 METRICS_PRED1_NDX = 1
@@ -40,19 +38,25 @@ class Diff(IntEnum):
 
 class BaseManager:
     def __init__(self, code, mode):
-        if type(mode) is str:
-            mode = convert_str_to_mode(mode)
+        print(f"manager:{mode=}")
+        # if type(mode) is str:
+        # mode = convert_str_to_mode(mode)
+        print(f"manager:{mode=}")
         self.dataset = JStocksDataset(code, mode)
         self.model = JStocksModel()
-        self.mode = mode
+        self.mode = self.dataset.get_mode()
+        mode = self.mode
 
         # 損失関数
         # weights = torch.tensor([0.3, 0.7])
         # self.criterion = nn.BCEWithLogitsLoss(weight=weights)
+        MODEL_MODE = self.dataset.get_mode_enum()
 
         if mode == MODEL_MODE.MODE_RISED or mode == MODEL_MODE.MODE_VALID:
+            print(f"manager No.1:{mode=}")
             self.criterion = nn.BCEWithLogitsLoss()
         elif mode == MODEL_MODE.MODE_VALUE_HIGH or mode == MODEL_MODE.MODE_VALUE_LOW:
+            print(f"manager No.2:{mode=}")
             self.criterion = nn.MSELoss()
         # self.criterion = torchvision.ops.sigmoid_focal_loss
 
