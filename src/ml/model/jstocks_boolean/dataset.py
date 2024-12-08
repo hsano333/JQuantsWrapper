@@ -4,7 +4,8 @@ from jq.sql import get_limit
 
 from .setting import MODEL_MODE
 from .setting import convert_str_to_mode
-from .setting import get_mode
+
+# from .manimport get_mode
 import torch
 import numpy as np
 import pandas as pd
@@ -129,8 +130,8 @@ class JStocksDataset(Dataset):
         jq = JQuantsWrapper()
         self.sql = SQL(db, jq)
 
-        if mode is not None:
-            mode = get_mode()
+        # if mode is not None:
+        # mode = get_mode()
         self.mode = mode
         self.code = code
         self.load(code, self.mode)

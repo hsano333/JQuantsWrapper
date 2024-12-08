@@ -6,6 +6,7 @@ from enum import IntEnum
 D_in = 23
 H = 100
 D_out = 1
+DROPOUT_RATIO = 0.1
 METRICS_LABEL_NDX = 0
 METRICS_PRED_NDX = 1
 METRICS_LOSS_NDX = 2
@@ -22,19 +23,24 @@ class JStocksModel(nn.Module):
         super(JStocksModel, self).__init__()
         # super()
 
-        self.linear1 = torch.nn.Linear(D_in, 16)
-        self.linear2 = torch.nn.Linear(16, 8)
-        self.linear3 = torch.nn.Linear(8, 4)
-        # self.linear2 = torch.nn.Linear(H, int(H / 4))
-        # self.linear3 = torch.nn.Linear(H, int(H / 20))
-        self.linear4 = torch.nn.Linear(4, D_out)
-        self.relu = torch.nn.ReLU(inplace=False)
+        self.sequential = torch.nn.Sequential(
+            torch.nn.Linear(D_in, 16),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(DROPOUT_RATIO),
+            torch.nn.Linear(16, 8),
+            torch.nn.ReLU(),
+            torch.nn.Linear(8, 4),
+            torch.nn.ReLU(),
+            torch.nn.Linear(4, D_out),
+            torch.nn.Dropout(DROPOUT_RATIO),
+            torch.nn.Sigmoid(),
+        )
 
     # @torch.compile
     def forward(self, x):
-        print("model forward")
-        x = F.relu(self.linear1(x))
-        x = F.relu(self.linear2(x))
-        x = F.relu(self.linear3(x))
-        x = self.linear4(x)
+        x = self.sequential(x)
+        # x = F.relu(self.linear1(x))
+        # x = F.relu(self.linear2(x))
+        # x = F.relu(self.linear3(x))
+        # x = self.linear4(x)
         return x
