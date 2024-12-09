@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from enum import IntEnum
 
-D_in = 27
+D_in = 11
 H = 100
 D_out = 1
 DROPOUT_RATIO = 0.1

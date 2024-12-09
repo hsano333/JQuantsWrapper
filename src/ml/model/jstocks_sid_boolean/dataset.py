@@ -254,8 +254,8 @@ class JStocksDataset(Dataset):
         df["high"] = gb["high"].max()
         df["low"] = gb["low"].min()
         df["close"] = gb["close"].last()
-        df["volume"] = gb["volume"].sum()
-        df["turnover"] = gb["turnover"].sum()
+        df["volume"] = gb["volume"].sum() / gb["valid_cnt"].last()
+        df["turnover"] = gb["turnover"].sum() / gb["valid_cnt"].last()
         df["limit"] = gb["limit"].last() * 2
         df["valid_cnt"] = gb["valid_cnt"].last()
         df.reset_index(inplace=True)
@@ -264,11 +264,11 @@ class JStocksDataset(Dataset):
         df = df.apply(change_price, axis=1)
 
         df["turnover"] = df.apply(change_turnover, axis=1)
-        df = add_rolling(df, 5)
-        df = add_rolling(df, 15)
-        df = add_rolling(df, 50)
-        df = add_rolling(df, 150)
-        df = df.apply(change_rolling, axis=1)
+        # df = add_rolling(df, 5)
+        # df = add_rolling(df, 15)
+        # df = add_rolling(df, 50)
+        # df = add_rolling(df, 150)
+        # df = df.apply(change_rolling, axis=1)
 
         # 最後に不要なカラムを削除
         print(f"{df=}")
