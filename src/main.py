@@ -17,3 +17,6 @@ routine.learning(code, mode, continue_epoch=False)
 
 # 予想する
 # routine.forecast_all()
+
+# テスト
+# routine.reload_my_torch(code, mode)

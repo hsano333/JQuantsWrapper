@@ -44,13 +44,8 @@ def change_turnover(val):
     return calc_turnover
 
 
-# 前日比
-def change_price(val, adj):
-    tmp = val["tmp"]
+def apply_limit(val, adj):
     if val["limit"] == 0:
-        val["is_rised"] = False
-        val["is_falled"] = False
-        val["is_zero"] = True
         return val
 
     adj_val = 1
@@ -67,8 +62,36 @@ def change_price(val, adj):
         val["low"] = val["low"] * adj_val
         val["close"] = val["close"] * adj_val
         val["volume"] = val["volume"] * adj_val
-        tmp = tmp * adj_val
         val["limit"] = get_limit(val["tmp"] * adj_val)
+
+    return val
+
+
+# 前日比
+def change_price(val):
+    tmp = val["tmp"]
+    if val["limit"] == 0:
+        val["is_rised"] = False
+        val["is_falled"] = False
+        val["is_zero"] = True
+        return val
+
+    # adj_val = 1
+    # date = val["date"]
+
+    # dict_data = dict(zip(adj["date"], adj["adj"]))
+    # for adj_date, adj_value in dict_data.items():
+    # if date > adj_date:
+    # break
+    # adj_val *= adj_value
+    # if adj_val != 1:
+    #     val["open"] = val["open"] * adj_val
+    #     val["high"] = val["high"] * adj_val
+    #     val["low"] = val["low"] * adj_val
+    #     val["close"] = val["close"] * adj_val
+    #     val["volume"] = val["volume"] * adj_val
+    #     tmp = tmp * adj_val
+    #     val["limit"] = get_limit(val["tmp"] * adj_val)
 
     val["is_rised"] = ((val["close"] - tmp) / tmp) >= 0.01
     val["is_falled"] = ((val["close"] - tmp) / tmp) <= -0.01
@@ -93,10 +116,10 @@ def change_price(val, adj):
     return val
 
 
-def add_rolling(val, day):
-    val[f"avg{day}"] = val["close"].rolling(day, min_periods=day).mean()
-    val[f"max{day}"] = val["close"].rolling(day, min_periods=day).max()
-    val[f"min{day}"] = val["close"].rolling(day, min_periods=day).min()
+def add_rolling(val, sid):
+    val[f"avg{sid}"] = val["close"].rolling(sid, min_periods=sid).mean()
+    val[f"max{sid}"] = val["close"].rolling(sid, min_periods=sid).max()
+    val[f"min{sid}"] = val["close"].rolling(sid, min_periods=sid).min()
     # ７は適当。単純に加算しただけでは大きすぎてしまうため
     # val[f"limit{day}"] = (val["close"].rolling(day, min_periods=day).sum()) / 7
     return val
@@ -106,43 +129,47 @@ def add_rolling(val, day):
 def change_rolling(val):
     tmp = val["close"]
 
-    val["avg25"] = tmp - val["avg25"]
-    val["avg75"] = tmp - val["avg75"]
-    val["avg200"] = tmp - val["avg200"]
+    val["avg5"] = tmp - val["avg5"]
+    val["avg15"] = tmp - val["avg15"]
+    val["avg50"] = tmp - val["avg50"]
+    val["avg150"] = tmp - val["avg150"]
 
-    val["is_avg25_positive"] = val["avg25"] >= 0
-    val["is_avg75_positive"] = val["avg75"] >= 0
-    val["is_avg200_positive"] = val["avg200"] >= 0
+    val["is_avg5_positive"] = val["avg5"] >= 0
+    val["is_avg15_positive"] = val["avg15"] >= 0
+    val["is_avg50_positive"] = val["avg50"] >= 0
+    val["is_avg150_positive"] = val["avg150"] >= 0
 
-    diff25 = val["max25"] - val["min25"]
-    diff75 = val["max75"] - val["min75"]
-    diff200 = val["max200"] - val["min200"]
+    diff5 = val["max5"] - val["min5"]
+    diff15 = val["max15"] - val["min15"]
+    diff50 = val["max50"] - val["min50"]
+    diff150 = val["max150"] - val["min150"]
 
-    val["avg25"] = (abs(val["avg25"])) / diff25
-    val["avg75"] = (abs(val["avg75"])) / diff75
-    val["avg200"] = (abs(val["avg200"])) / diff200
+    val["avg5"] = (abs(val["avg5"])) / diff5
+    val["avg15"] = (abs(val["avg15"])) / diff15
+    val["avg50"] = (abs(val["avg50"])) / diff50
+    val["avg150"] = (abs(val["avg150"])) / diff150
 
-    val["max25"] = (val["max25"] - tmp) / diff25
-    val["max75"] = (val["max75"] - tmp) / diff75
-    val["max200"] = (val["max200"] - tmp) / diff200
+    val["max5"] = (val["max5"] - tmp) / diff5
+    val["max15"] = (val["max15"] - tmp) / diff15
+    val["max50"] = (val["max50"] - tmp) / diff50
+    val["max150"] = (val["max150"] - tmp) / diff150
 
-    val["min25"] = (tmp - val["min25"]) / diff25
-    val["min75"] = (tmp - val["min75"]) / diff75
-    val["min200"] = (tmp - val["min200"]) / diff200
+    val["min5"] = (tmp - val["min5"]) / diff5
+    val["min15"] = (tmp - val["min15"]) / diff15
+    val["min50"] = (tmp - val["min50"]) / diff50
+    val["min150"] = (tmp - val["min150"]) / diff150
 
     return val
 
 
 class JStocksDataset(Dataset):
-    TEST_SIZE = 150
+    TEST_SIZE = 15
 
     def __init__(self, code=72030, mode=None):
-        db = DB()
+        self.db = DB()
         jq = JQuantsWrapper()
-        self.sql = SQL(db, jq)
+        self.sql = SQL(self.db, jq)
 
-        # if mode is not None:
-        # mode = get_mode()
         self.mode = self.convert_str_to_mode(mode)
         self.code = code
         self.load(code, self.mode)
@@ -159,23 +186,14 @@ class JStocksDataset(Dataset):
         self.mode = mode
 
     def get_from_date(self, date_from):
-        print(f"{self.saved_prices.shape=}, {self.saved_prices=}, {date_from=}")
         tmp = self.saved_prices[self.saved_prices["date"] >= date_from]
         (prices, tmp_label) = self.get_data_per_mode(tmp, self.mode, False)
         prices = prices.drop(["date", "is_rised", "is_zero"], axis=1)
-        # print(f"{tmp.shape=}, {tmp.iloc[-10:, 0:10]=}")
-        # print(f"{tmp.shape=}, {tmp.iloc[-10:, 10:20]=}")
-        # print(f"{tmp.shape=}, {tmp.iloc[-10:, 20:30]=}")
-        # print(f"{tmp.shape=}, {tmp.iloc[-10:, 30:]=}")
-
-        print(f"{date_from=}")
         return torch.tensor(prices.values.astype(np.float32))
 
     def get_data_per_mode(self, prices, mode, remove=True):
-        print(f"{mode=}")
         if type(mode) is str:
             mode = self.convert_str_to_mode(mode)
-        print(f"{mode=}")
         if mode == MODEL_MODE.MODE_RISED:
             if remove:
                 prices = prices[~prices["is_zero"]]
@@ -193,16 +211,9 @@ class JStocksDataset(Dataset):
         return (prices, tmp_label)
 
     def finalize_data(self, prices, tmp_label):
-        prices = prices.drop(["date", "is_rised", "is_zero"], axis=1)
-        # prices["volume"] = (prices["volume"] - prices["volume"].mean()) / prices[
-        #     "volume"
-        # ].std()
-        print(f"No.4:{prices.shape=}")
-
+        prices = prices.drop(["sid", "is_rised", "is_zero"], axis=1)
         prices = prices[:-1]
         self.tmp_label = tmp_label[1:]
-        print(f"No.5:{prices.shape=}")
-        print(f"No.5:{tmp_label.shape=}")
 
         self.data = torch.tensor(prices[: -self.TEST_SIZE].values.astype(np.float32))
         self.label = torch.tensor(
@@ -216,95 +227,78 @@ class JStocksDataset(Dataset):
         )
 
     def load(self, code, mode):
-        print("load No.0")
         self.dataset_name = f"dataset_{code}"
         where = f"where company = '{code}' ORDER BY date ASC  "
-        prices = self.sql.get_table("price", where)
+        tmp_prices = self.sql.get_table("price", where)
 
-        prices["turnover"] = prices.apply(change_turnover, axis=1)
+        date_min = tmp_prices["date"].min()
+        date_max = tmp_prices["date"].max()
+        sql = f"select jq_sid.sid, date.date, jq_sid.valid_cnt from date inner join jq_sid on jq_sid.sid=date.sid where  date >= '{date_min}' and date <= '{date_max}'"
+
+        sid_df = self.db.get_df(sql)
+        prices = tmp_prices.merge(
+            sid_df,
+            left_on="date",
+            right_on="date",
+            how="left",
+        )
+
         prices["tmp"] = prices["close"].shift(1)
         adj = prices[prices["adj"] != 1]
-        prices = prices.apply(change_price, axis=1, adj=adj)
+        prices = prices.apply(apply_limit, axis=1, adj=adj)
 
-        prices = add_rolling(prices, 25)
-        prices = add_rolling(prices, 75)
-        prices = add_rolling(prices, 200)
-        prices = prices.apply(change_rolling, axis=1)
+        gb = prices.groupby("sid")
+        gb["high"].max()
+        df = pd.DataFrame()
+        df["open"] = gb["open"].first()
+        df["high"] = gb["high"].max()
+        df["low"] = gb["low"].min()
+        df["close"] = gb["close"].last()
+        df["volume"] = gb["volume"].sum()
+        df["turnover"] = gb["turnover"].sum()
+        df["limit"] = gb["limit"].last() * 2
+        df["valid_cnt"] = gb["valid_cnt"].last()
+        df.reset_index(inplace=True)
+
+        df["tmp"] = df["close"].shift(1)
+        df = df.apply(change_price, axis=1)
+
+        df["turnover"] = df.apply(change_turnover, axis=1)
+        df = add_rolling(df, 5)
+        df = add_rolling(df, 15)
+        df = add_rolling(df, 50)
+        df = add_rolling(df, 150)
+        df = df.apply(change_rolling, axis=1)
 
         # 最後に不要なカラムを削除
-        prices = prices.drop(
-            ["company", "upper_l", "low_l", "adj", "limit", "tmp", "id"],
+        print(f"{df=}")
+        print(f"{df.iloc[-10:, 0:10]=}")
+        print(f"{df.iloc[-10:, 10:20]=}")
+        print(f"{df.iloc[-10:, 20:33]=}")
+        df = df.drop(
+            ["limit", "tmp", "valid_cnt"],
+            # ["company", "upper_l", "low_l", "adj", "limit", "tmp", "id"],
             axis=1,
         )
 
-        # condition = prices["is_zero"]
-        # target_indices = prices[condition].index
+        df = df.dropna()
+        print(f"{df.shape=}")
+        df["volume"] = (df["volume"] - df["volume"].mean()) / df["volume"].std()
+        print(f"{df.shape=}")
 
-        # print(f"No.0:{prices.shape=}")
-        # print(f'{prices["is_zero"].sum()}')
-        # print(f'{prices["is_rised"].sum()}')
-        # print(f'{prices["is_falled"].sum()}')
-        # print(f"{prices=} ")
-        # np.random.seed(42)  # 再現性のために乱数シードを設定（必要に応じて変更）
-        # half_indices = np.random.choice(
-        #     target_indices, size=len(target_indices) // 2, replace=False
-        # )
-
-        # prices = prices.drop(half_indices).reset_index(drop=True)
-        prices = prices.dropna()
-        # print(f"No.1:{prices.shape=}")
-
-        # tmp_label = prices[["is_rised", "is_zero", "is_falled"]]
-        # print(f"No.2:{tmp_label.shape=}")
-
-        prices["volume"] = (prices["volume"] - prices["volume"].mean()) / prices[
-            "volume"
-        ].std()
-
-        self.saved_prices = prices
-        (prices, tmp_label) = self.get_data_per_mode(prices, mode)
-        self.finalize_data(prices, tmp_label)
-        # if mode == MODEL_MODE.MODE_RISED:
-        #     prices = prices[~prices["is_zero"]]
-        #     tmp_label = prices[["is_rised"]]
-        # elif mode == MODEL_MODE.MODE_VALID:
-        #     tmp_label = prices[["is_zero"]]
-        # elif mode == MODEL_MODE.MODE_VALUE_HIGH:
-        #     prices = prices[~prices["is_zero"]]
-        #     tmp_label = prices[["high"]]
-        # elif mode == MODEL_MODE.MODE_VALUE_LOW:
-        #     prices = prices[~prices["is_zero"]]
-        #     tmp_label = prices[["low"]]
-        # print(f"No.3:{tmp_label.shape=}")
-
-        # prices = prices.drop(["is_rised", "is_zero"], axis=1)
-        # prices["volume"] = (prices["volume"] - prices["volume"].mean()) / prices[
-        #     "volume"
-        # ].std()
-        # print(f"No.4:{prices.shape=}")
+        # date_min = prices["date"].min()
+        # date_max = prices["date"].max()
+        # sql = f"select jq_sid.sid, date.date, jq_sid.valid_cnt from date inner join jq_sid on jq_sid.sid=date.sid where  date >= '{date_min}' and date <= '{date_max}'"
         #
-        # prices = prices[:-1]
-        # self.tmp_label = tmp_label[1:]
-        # print(f"No.5:{prices.shape=}")
-        # print(f"No.5:{tmp_label.shape=}")
-        #
-        # self.data = torch.tensor(prices[: -self.TEST_SIZE].values.astype(np.float32))
-        # self.label = torch.tensor(
-        #     self.tmp_label.iloc[: -self.TEST_SIZE].values.astype(np.float32)
-        # )
-        # self.eval_data = torch.tensor(
-        #     prices[self.TEST_SIZE :].values.astype(np.float32)
-        # )
-        # self.eval_label = torch.tensor(
-        #     self.tmp_label.iloc[self.TEST_SIZE :].values.astype(np.float32)
-        # )
-        # print(f"{prices.shape=}")
-        # print(f"{tmp_label.shape=}")
-        # print(f"{self.data.shape=}")
-        # print(f"{self.label.shape=}")
-        # print(f"{self.eval_data.shape=}")
-        # print(f"{self.eval_label.shape=}")
-        # print(f"{self.eval_label=}")
+        # sid_df = self.db.get_df(sql)
+
+        # print(f"{prices_sid=}")
+        # print(f"{prices_sid.shape=}, {prices.shape=}")
+
+        self.saved_prices = df
+        (df, tmp_label) = self.get_data_per_mode(df, mode)
+        print(f"{df.shape=}")
+        self.finalize_data(df, tmp_label)
 
     def __len__(self):
         return len(self.data)

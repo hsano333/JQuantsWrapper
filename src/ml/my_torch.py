@@ -2,7 +2,7 @@ import os
 import importlib
 
 # modelの切り替え
-from ml.model.jstocks_boolean.manager import BaseManager
+from ml.model.jstocks_sid_boolean.manager import BaseManager
 
 # from ml.model.jstocks_cross_entropy.manager import BaseManager
 import ml.model.jstocks_boolean.manager
@@ -29,8 +29,8 @@ import ml.model.jstocks_boolean.dataset as MyDataset
 import ml.model.jstocks_boolean.model as MyModel
 import ml.model.jstocks_boolean.manager as MyManager
 
-BATCH_SIZE = 30
-EPOCH_SIZE = 201
+BATCH_SIZE = 10
+EPOCH_SIZE = 301
 NUM_WORKERS = 4
 
 torch._dynamo.config.suppress_errors = True

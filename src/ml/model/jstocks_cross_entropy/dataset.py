@@ -9,7 +9,7 @@ import pandas as pd
 from db.mydb import DB
 from jq.jquants import JQuantsWrapper
 from jq.sql import SQL
-import jq.utility as utility
+# import jq.utility as utility
 
 
 def change_turnover(val):
