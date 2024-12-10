@@ -973,9 +973,18 @@ class InitDB:
 
 
 init = InitDB()
-init.make_forecast_date_table()
-init.make_forecast_sid_table()
+
+# init.make_table()
+# init.init_table()
+
+
+# init.make_forecast_date_table()
+# init.make_forecast_sid_table()
+
+init.make_jq_sid_table()
+init.make_date_table()
 init.init_sid_date_table()
+init.make_trades_spec_table()
 
 # init.make_forecast_date_table()
 # init.make_forecast_sid_table()

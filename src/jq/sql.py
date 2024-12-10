@@ -451,7 +451,9 @@ class SQL:
         year_flag = False
         for date in date_list:
             if date.weekday() < 5:
-                if (date.month == 1) and date.day >= 4 and year_flag:
+                if (date.month == 1) and date.day < 4:
+                    continue
+                elif (date.month == 1) and date.day >= 4 and year_flag:
                     week = 1
                     year = year + 1
                     sid = sid + 1
