@@ -10,10 +10,10 @@ mode = "rised"
 # routine.delete_day_db("2024-11-22")
 
 # 基本的に毎日実行する
-# routine.day_routine()
+routine.day_routine()
 
 # 学習する
-routine.learning(code, mode, continue_epoch=False)
+# routine.learning(code, mode, continue_epoch=False)
 
 # 予想する
 # routine.forecast_all()

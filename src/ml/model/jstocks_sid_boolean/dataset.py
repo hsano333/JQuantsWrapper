@@ -20,6 +20,7 @@ from jq.sql import SQL
 
 class MODEL_MODE(Enum):
     MODE_RISED = "rised"
+    MODE_FALLED = "falled"
     MODE_VALID = "valid"
     MODE_VALUE_HIGH = "high"
     MODE_VALUE_LOW = "low"
@@ -93,8 +94,8 @@ def change_price(val):
     #     tmp = tmp * adj_val
     #     val["limit"] = get_limit(val["tmp"] * adj_val)
 
-    val["is_rised"] = ((val["close"] - tmp) / tmp) >= 0.01
-    val["is_falled"] = ((val["close"] - tmp) / tmp) <= -0.01
+    val["is_rised"] = ((val["close"] - tmp) / tmp) >= 0.03
+    val["is_falled"] = ((val["close"] - tmp) / tmp) <= -0.03
     val["is_zero"] = (val["is_rised"] is False) & (val["is_falled"] is False)
     # val["is_zero"] = val[(val["is_rised"] is False) & (val["is_falled"] is False)]
 
@@ -194,10 +195,13 @@ class JStocksDataset(Dataset):
     def get_data_per_mode(self, prices, mode, remove=True):
         if type(mode) is str:
             mode = self.convert_str_to_mode(mode)
-        if mode == MODEL_MODE.MODE_RISED:
+        if mode == MODEL_MODE.MODE_RISED or mode == MODEL_MODE.MODE_FALLED:
             if remove:
                 prices = prices[~prices["is_zero"]]
-            tmp_label = prices[["is_rised"]]
+            if mode == MODEL_MODE.MODE_RISED:
+                tmp_label = prices[["is_rised"]]
+            else:
+                tmp_label = prices[["is_falled"]]
         elif mode == MODEL_MODE.MODE_VALID:
             tmp_label = prices[["is_zero"]]
         elif mode == MODEL_MODE.MODE_VALUE_HIGH:
@@ -319,6 +323,8 @@ class JStocksDataset(Dataset):
     def convert_str_to_mode(self, mode):
         if mode == MODEL_MODE.MODE_RISED.value:
             return MODEL_MODE.MODE_RISED
+        elif mode == MODEL_MODE.MODE_FALLED.value:
+            return MODEL_MODE.MODE_FALLED
         elif mode == MODEL_MODE.MODE_VALID.value:
             return MODEL_MODE.MODE_VALID
         elif mode == MODEL_MODE.MODE_VALUE_HIGH.value:
