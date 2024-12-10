@@ -82,6 +82,7 @@ class JQuantsWrapper:
         return None
 
     ### 財務情報取得
+    # date_fromはそれ以降ではなく、当日のみ
     def get_fins_statements(self, code="", date_from=""):
         if code == "" and date_from == "":
             raise ValueError("Invalid Argument")

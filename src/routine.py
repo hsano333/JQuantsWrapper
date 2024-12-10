@@ -217,6 +217,7 @@ class Routine:
         self.sql.insert_forecast(date_from=date_from_str, date_to=date_to_str)
 
     def insert_db_per_week(self, date_to_str):
+        # update sid table
         date_df = self.sql.get_table("date")
         sid_df = self.sql.get_table("jq_sid")
         datetime_from = date_df["date"].min()
@@ -226,7 +227,6 @@ class Routine:
         datetime_from = datetime.combine(datetime_from, time(0, 0))
         datetime_to = datetime.combine(datetime_to, time(0, 0))
 
-        print(f"{sid_min=}")
         sid_df = sid_df[
             (sid_df["valid_cnt"] == 0)
             & (sid_df["sid"] >= sid_min)
@@ -234,15 +234,30 @@ class Routine:
         ]
 
         merge_df = date_df.merge(sid_df, left_on="sid", right_on="sid", how="inner")
-        # gb = merge_df.groupby('sid')
-        # sid_df['sid'] = merge_df.groupby('sid').count()['date']
 
         merge_df = merge_df.groupby("sid").count().reset_index()
         merge_df = merge_df[["sid", "valid_cnt"]]
 
+        print("{merge_df=}")
         result = merge_df.to_dict(orient="records")
         sql = "update jq_sid set valid_cnt = :valid_cnt where sid = :sid"
         self.db.update_df(result, sql)
+
+        # update fins table
+        date_df = self.sql.get_table("fins")
+        latest_date = date_df["date"].max()
+        datetime_from = latest_date + timedelta(days=1)
+        datetime_to_str = datetime.strftime(datetime_to, "%Y-%m-%d")
+
+        # self.sql.insert_margin(date_from=str(datetime_from), date_to=str(datetime_to))
+        self.sql.insert_fins(date_from=str(datetime_from), date_to=datetime_to_str)
+
+        # fins_date = datetime_from
+        # fins_list = []
+        # while fins_date < datetime_to:
+        #     fins_date = datetime_from + timedelta(days=4)
+        #     tmp = self.jq.get_fins_statements(date_from=fins_date)
+        #     fins_list.extend(tmp)
 
         pass
 
@@ -250,12 +265,13 @@ class Routine:
         # date = datetime.now() - timedelta(hours=19)
         date = datetime.now()
 
-        #self.insert_db_per_week(date)
-        #return
+        # self.insert_db_per_week(date)
+        # return
 
         # date_str = date.strftime("%Y-%m-%d")
         # date_str = date.
         if date.weekday() >= 5:
+            # self.insert_db_per_day(date)
             self.insert_db_per_week(date)
         elif date.hour >= 19:
             return self.insert_db_per_day(date)

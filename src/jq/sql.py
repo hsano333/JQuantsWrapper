@@ -197,15 +197,19 @@ class SQL:
             print(f"Error insert_price():{e}")
 
     def insert_fins(self, code="", date_from="", date_to=""):
+        print("insert_fins No.0")
         companys = self.get_all_company()
         companys = companys[["code", "name"]]
+        print("insert_fins No.1")
         try:
             if code != "":
                 tmp = self.jq.get_fins_statements(code=code)
             else:
+                print("insert_fins No.2")
                 tmp = self.merge_date_loop(
                     self.jq.get_fins_statements, date_from, date_to
                 )
+                print("insert_fins No.3")
 
             if len(tmp) == 0:
                 return
@@ -246,8 +250,12 @@ class SQL:
         pass
 
     def merge_date_loop(self, func, date_from, date_to):
+        print(f"{date_from=}")
+        print(f"{date_to=}")
         date_to_td = datetime.strptime(date_to, "%Y-%m-%d")
+        print(f"{date_to_td=}")
         date_tmp = datetime.strptime(date_from, "%Y-%m-%d")
+        print(f"{date_tmp=}")
         tmp = []
         cnt = 0
         while date_tmp <= date_to_td:
