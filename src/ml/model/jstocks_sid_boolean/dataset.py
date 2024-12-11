@@ -181,6 +181,37 @@ class JStocksDataset(Dataset):
     def get_code(self):
         return self.code
 
+    # 学習として使用しない日を指定する
+    # sid単位で行う場合、あとでその週の前日を削除する
+    def set_invalid_flag(self, df):
+        # 決算日、およびその翌日は考慮しない（変動が大きいため）
+        fins_date_df = self.sql.get_fins_date(self.code)
+        fins_date_df["week_day"] = fins_date_df["date"].apply(
+            # 金曜日だけ、invaidの位置を前日に変更する。
+            # なぜなら、決算で影響が出るのは翌日（翌週）だから
+            # よって、予想データとして使うのはその前日（先週）になるが、
+            # 金曜日だけ影響が出るのは来週になる。
+            lambda x: x.weekday() == 4
+        )
+        # fins_date_df['week_day'] = fins_date_df['date'].apply(lambda x: x.weekday()  )
+        fins_date_df["tmp_invalid"] = True
+
+        df = df.merge(fins_date_df, left_on="date", right_on="date", how="left")
+        df["week_day"] = df["week_day"].fillna(False)
+        df["tmp_invalid"] = df["tmp_invalid"].fillna(False)
+        df["post_invalid"] = df["tmp_invalid"].shift(1).fillna(False)
+        df["post_weekday"] = df["week_day"].shift(1).fillna(False)
+
+        df["invalid"] = df["post_invalid"] & df["post_weekday"]
+        df["invalid"] = (~df["week_day"] & df["tmp_invalid"]) | df["invalid"]
+        df = df.drop(
+            ["post_invalid", "tmp_invalid", "post_weekday", "week_day"], axis=1
+        )
+
+        # 変動割合が一定以上なら、そのデータは考慮しない（ニュースなどによる変動の可能性が高いため)
+
+        return df
+
     def change_mode(self, mode):
         (prices, tmp_label) = self.get_data_per_mode(self.saved_prices, mode)
         self.finalize_data(prices, tmp_label)
@@ -234,6 +265,8 @@ class JStocksDataset(Dataset):
         self.dataset_name = f"dataset_{code}"
         where = f"where company = '{code}' ORDER BY date ASC  "
         tmp_prices = self.sql.get_table("price", where)
+        # print(f"{tmp_prices=}")
+        # print(f"{tmp_prices[tmp_prices['invalid']]=}")
 
         date_min = tmp_prices["date"].min()
         date_max = tmp_prices["date"].max()
@@ -250,6 +283,10 @@ class JStocksDataset(Dataset):
         prices["tmp"] = prices["close"].shift(1)
         adj = prices[prices["adj"] != 1]
         prices = prices.apply(apply_limit, axis=1, adj=adj)
+        print(f"{prices=}")
+        prices = self.set_invalid_flag(prices)
+        print(f"{prices=}")
+        print(f"{prices[prices['invalid']]=}")
 
         gb = prices.groupby("sid")
         gb["high"].max()
@@ -262,7 +299,12 @@ class JStocksDataset(Dataset):
         df["turnover"] = gb["turnover"].sum() / gb["valid_cnt"].last()
         df["limit"] = gb["limit"].last() * 2
         df["valid_cnt"] = gb["valid_cnt"].last()
+        df["invalid"] = gb["invalid"].sum() > 0
+        print("groupby")
         df.reset_index(inplace=True)
+        print(f"{df=}")
+        df["invalid"] = df["invalid"].shift(-1).fillna(False)
+        print(f"{df[df['invalid']]=}")
 
         df["tmp"] = df["close"].shift(1)
         df = df.apply(change_price, axis=1)
@@ -275,10 +317,6 @@ class JStocksDataset(Dataset):
         # df = df.apply(change_rolling, axis=1)
 
         # 最後に不要なカラムを削除
-        print(f"{df=}")
-        print(f"{df.iloc[-10:, 0:10]=}")
-        print(f"{df.iloc[-10:, 10:20]=}")
-        print(f"{df.iloc[-10:, 20:33]=}")
         df = df.drop(
             ["limit", "tmp", "valid_cnt"],
             # ["company", "upper_l", "low_l", "adj", "limit", "tmp", "id"],

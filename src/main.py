@@ -19,4 +19,4 @@ routine.day_routine()
 # routine.forecast_all()
 
 # テスト
-# routine.reload_my_torch(code, mode)
+routine.reload_my_torch(code, mode)

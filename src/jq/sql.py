@@ -196,6 +196,10 @@ class SQL:
         except Exception as e:
             print(f"Error insert_price():{e}")
 
+    def get_fins_date(self, code=""):
+        sql = f"select date  from fins  where  company = '{code}'"
+        return self.db.get_df(sql)
+
     def insert_fins(self, code="", date_from="", date_to=""):
         print("insert_fins No.0")
         companys = self.get_all_company()
