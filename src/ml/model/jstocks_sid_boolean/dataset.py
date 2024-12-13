@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, IntEnum, auto
 from sklearn.datasets import load_iris
 from torch.utils.data import Dataset
 from jq.sql import get_limit
@@ -15,7 +15,17 @@ import pandas as pd
 from db.mydb import DB
 from jq.jquants import JQuantsWrapper
 from jq.sql import SQL
+
 # import jq.utility as utility
+import datetime
+
+LSTM_STEP_SIZE = 104
+
+
+class LABEL(IntEnum):
+    LABEL_ZERO = auto()
+    LABEL_RISED = auto()
+    LABEL_FALLED = auto()
 
 
 class MODEL_MODE(Enum):
@@ -30,8 +40,8 @@ class MODEL_MODE(Enum):
 
 
 def change_turnover(val):
-    high = val["high"]
-    low = val["low"]
+    high = val["high"] * 1.0 if val["is_high_positive"] is True else -1.0 * val["high"]
+    low = val["low"] * 1.0 if val["is_low_positive"] is True else -1.0 * val["low"]
     volume = val["volume"]
     turnover = val["turnover"]
     if turnover == 0 or volume == 0 or high == 0 or low == 0:
@@ -114,6 +124,8 @@ def change_price(val):
     val["open"] = abs(val["open"]) / val["limit"]
     val["close"] = abs(val["close"]) / val["limit"]
 
+    if val["sid"] >= 6385 and val["sid"] < 6386:
+        print(f"{tmp=}, {val=}")
     return val
 
 
@@ -166,12 +178,16 @@ def change_rolling(val):
 class JStocksDataset(Dataset):
     TEST_SIZE = 15
 
-    def __init__(self, code=72030, mode=None):
+    # code of sector33
+    def __init__(self, code="3700", mode=None):
+        print("dateset No.0")
         self.db = DB()
         jq = JQuantsWrapper()
         self.sql = SQL(self.db, jq)
+        print("dateset No.1")
 
         self.mode = self.convert_str_to_mode(mode)
+        print("dateset No.2")
         self.code = code
         self.load(code, self.mode)
 
@@ -183,9 +199,9 @@ class JStocksDataset(Dataset):
 
     # 学習として使用しない日を指定する
     # sid単位で行う場合、あとでその週の前日を削除する
-    def set_invalid_flag(self, df):
+    def set_invalid_flag(self, df, company):
         # 決算日、およびその翌日は考慮しない（変動が大きいため）
-        fins_date_df = self.sql.get_fins_date(self.code)
+        fins_date_df = self.sql.get_fins_date(company)
         fins_date_df["week_day"] = fins_date_df["date"].apply(
             # 金曜日だけ、invaidの位置を前日に変更する。
             # なぜなら、決算で影響が出るのは翌日（翌週）だから
@@ -261,12 +277,36 @@ class JStocksDataset(Dataset):
             self.tmp_label.iloc[self.TEST_SIZE :].values.astype(np.float32)
         )
 
-    def load(self, code, mode):
-        self.dataset_name = f"dataset_{code}"
-        where = f"where company = '{code}' ORDER BY date ASC  "
+    def get_sector33(self, code):
+        if type(code) is str:
+            code = int(code)
+
+        sql = "select code from sector33"
+        sector33 = self.db.get(sql)
+        if code < 2000:
+            return ("0050", "1050")
+        else:
+            r_list = []
+            for sec33 in sector33:
+                tmp = int(sec33[0])
+                if int(tmp / 100) == int(code / 100):
+                    r_list.append(sec33[0])
+            return r_list
+
+    def get_companys(self, sector33_list):
+        all_companys = self.sql.get_all_company()
+
+        company_list = []
+        for sec33 in sector33_list:
+            tmp_companys = all_companys[all_companys["sector33"] == sec33]
+            company_list.extend(tmp_companys["code"].to_list())
+        return company_list
+
+    def convert_sid_dataset(self, company):
+        where = f"where company = '{company}' ORDER BY date ASC  "
         tmp_prices = self.sql.get_table("price", where)
-        # print(f"{tmp_prices=}")
-        # print(f"{tmp_prices[tmp_prices['invalid']]=}")
+        if tmp_prices.shape[0] < LSTM_STEP_SIZE * 2:
+            return None
 
         date_min = tmp_prices["date"].min()
         date_max = tmp_prices["date"].max()
@@ -283,13 +323,10 @@ class JStocksDataset(Dataset):
         prices["tmp"] = prices["close"].shift(1)
         adj = prices[prices["adj"] != 1]
         prices = prices.apply(apply_limit, axis=1, adj=adj)
-        print(f"{prices=}")
-        prices = self.set_invalid_flag(prices)
-        print(f"{prices=}")
-        print(f"{prices[prices['invalid']]=}")
+        prices = self.set_invalid_flag(prices, company)
 
         gb = prices.groupby("sid")
-        gb["high"].max()
+        # gb["high"].max()
         df = pd.DataFrame()
         df["open"] = gb["open"].first()
         df["high"] = gb["high"].max()
@@ -300,15 +337,13 @@ class JStocksDataset(Dataset):
         df["limit"] = gb["limit"].last() * 2
         df["valid_cnt"] = gb["valid_cnt"].last()
         df["invalid"] = gb["invalid"].sum() > 0
-        print("groupby")
         df.reset_index(inplace=True)
-        print(f"{df=}")
         df["invalid"] = df["invalid"].shift(-1).fillna(False)
-        print(f"{df[df['invalid']]=}")
 
         df["tmp"] = df["close"].shift(1)
         df = df.apply(change_price, axis=1)
 
+        df = df.drop(0)
         df["turnover"] = df.apply(change_turnover, axis=1)
         # df = add_rolling(df, 5)
         # df = add_rolling(df, 15)
@@ -324,23 +359,63 @@ class JStocksDataset(Dataset):
         )
 
         df = df.dropna()
-        print(f"{df.shape=}")
         df["volume"] = (df["volume"] - df["volume"].mean()) / df["volume"].std()
-        print(f"{df.shape=}")
+        return df
 
-        # date_min = prices["date"].min()
-        # date_max = prices["date"].max()
-        # sql = f"select jq_sid.sid, date.date, jq_sid.valid_cnt from date inner join jq_sid on jq_sid.sid=date.sid where  date >= '{date_min}' and date <= '{date_max}'"
-        #
-        # sid_df = self.db.get_df(sql)
+    def convert_lstm_dataset(self, df, mode, step):
+        label_index = 0
+        # data_2d = df.to_numpy()
+        # print("lstm dataset No.2")
+        for i, col in enumerate(df.columns):
+            if col == mode.value:
+                label_index = i
+        print(f"{label_index=}")
+        print(f"{df=}")
 
-        # print(f"{prices_sid=}")
-        # print(f"{prices_sid.shape=}, {prices.shape=}")
+        # size = data_2d.shape[0]
+        # print(f"{size=}")
+        # data_3d = data_2d[: size * step].reshape(size, step, data_2d.shape[1])
+        # print(f"{data_3d=}")
+        # return (data_3d, 0)
 
-        self.saved_prices = df
-        (df, tmp_label) = self.get_data_per_mode(df, mode)
-        print(f"{df.shape=}")
-        self.finalize_data(df, tmp_label)
+        company_np = df.to_numpy()
+        # step = 10
+        features = company_np.shape[1]
+        size = company_np.shape[0] - step
+        data_3d = np.zeros((size, step, features))
+        label = np.zeros(size)
+
+        for i in range(0, size):
+            # tmp_2d =
+            data_3d[i] = company_np[i : step + i, :]
+            label[i] = company_np[step + i, label_index]
+        return (data_3d, label)
+
+    def load(self, sector33, mode):
+        self.dataset_name = f"dataset_{sector33}"
+        sector33_list = self.get_sector33(sector33)
+        company_list = self.get_companys(sector33_list)
+
+        data_for_lstm = []
+        label_for_lstm = []
+        for company2 in company_list:
+            company = "92040"
+            print(f"{company=}")
+            sid_data = self.convert_sid_dataset(company)
+            if sid_data is None:
+                continue
+            print("end sid_data")
+            (x, y) = self.convert_lstm_dataset(sid_data, mode, LSTM_STEP_SIZE)
+            return 0
+            data_for_lstm.extend(x)
+            label_for_lstm.extend(y)
+        print(f"{data_for_lstm.shape=}")
+        print(f"{label_for_lstm.shape=}")
+
+        # self.saved_prices = df
+        # (df, tmp_label) = self.get_data_per_mode(df, mode)
+        # print(f"{df.shape=}")
+        # self.finalize_data(df, tmp_label)
 
     def __len__(self):
         return len(self.data)

@@ -385,8 +385,8 @@ class InitDB:
     def init_price_table(self):
         company = self.sql.get_table("company")
         # self.sql.insert_price("72030")
-        self.sql.insert_price_with_code("72030")
-        # company["code"].apply(lambda code: self.sql.insert_price_with_code(code))
+        # self.sql.insert_price_with_code("72030")
+        company["code"].apply(lambda code: self.sql.insert_price_with_code(code))
 
     def make_sector17_table(self):
         sql = (
@@ -926,15 +926,15 @@ class InitDB:
         # finans = self.jq.get_fins_statements(code=code)
         company = self.sql.get_table("company")
         # self.sql.insert_fins("72030")
-        self.sql.insert_fins("13010")
-        self.sql.insert_fins("30230")
-        self.sql.insert_fins("30420")
-        self.sql.insert_fins("47680")
-        self.sql.insert_fins("47680")
-        self.sql.insert_fins("69200")
-        self.sql.insert_fins("69200")
-        self.sql.insert_fins("90640")
-        # company["code"].apply(lambda code: self.sql.insert_fins(code))
+        # self.sql.insert_fins("13010")
+        # self.sql.insert_fins("30230")
+        # self.sql.insert_fins("30420")
+        # self.sql.insert_fins("47680")
+        # self.sql.insert_fins("47680")
+        # self.sql.insert_fins("69200")
+        # self.sql.insert_fins("69200")
+        # self.sql.insert_fins("90640")
+        company["code"].apply(lambda code: self.sql.insert_fins(code))
         pass
 
     def make_table(self):
@@ -973,6 +973,8 @@ class InitDB:
 
 
 init = InitDB()
+# init.init_price_table()
+init.insert_fins_table()
 
 # init.make_table()
 # init.init_table()
@@ -981,10 +983,10 @@ init = InitDB()
 # init.make_forecast_date_table()
 # init.make_forecast_sid_table()
 
-init.make_jq_sid_table()
-init.make_date_table()
-init.init_sid_date_table()
-init.make_trades_spec_table()
+# init.make_jq_sid_table()
+# init.make_date_table()
+# init.init_sid_date_table()
+# init.make_trades_spec_table()
 
 # init.make_forecast_date_table()
 # init.make_forecast_sid_table()

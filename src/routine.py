@@ -271,7 +271,7 @@ class Routine:
         # date_str = date.strftime("%Y-%m-%d")
         # date_str = date.
         if date.weekday() >= 5:
-            # self.insert_db_per_day(date)
+            self.insert_db_per_day(date)
             self.insert_db_per_week(date)
         elif date.hour >= 19:
             return self.insert_db_per_day(date)
