@@ -4,6 +4,7 @@ from torch.utils.data import Dataset
 from jq.sql import get_limit
 
 # from .manager import MODEL_MODE
+
 # from .manager import convert_str_to_mode
 
 # from .manimport get_mode
@@ -20,12 +21,22 @@ from jq.sql import SQL
 import datetime
 
 LSTM_STEP_SIZE = 104
+LSTM_FEATURES_SIZE = 15
+
+RISED_INDEX = 1
+FALLED_INDEX = 2
+
+
+LABEL_START_INDEX = 8
+LABEL_NUM = 5
 
 
 class LABEL(IntEnum):
-    LABEL_ZERO = auto()
-    LABEL_RISED = auto()
-    LABEL_FALLED = auto()
+    RISED_INDEX = 0
+    FALLED_INDEX = auto()
+    VALID_INDEX = auto()
+    IS_HIGH_POS_INDEX = auto()
+    IS_LOW_POS_INDEX = auto()
 
 
 class MODEL_MODE(Enum):
@@ -239,26 +250,46 @@ class JStocksDataset(Dataset):
         prices = prices.drop(["date", "is_rised", "is_zero"], axis=1)
         return torch.tensor(prices.values.astype(np.float32))
 
-    def get_data_per_mode(self, prices, mode, remove=True):
+    def delete_invalid_data(self, prices, labels):
+        test_prices = prices
+        for i, data in reversed(list(enumerate(labels))):
+            if data[LABEL.VALID_INDEX] > 0.9999:
+                test_prices = np.delete(test_prices, i, 0)
+        valid_data = labels[:, LABEL.VALID_INDEX] < 0.009
+        return (test_prices, labels[valid_data])
+
+    def get_data_per_mode(self, prices, labels, mode, remove=True):
+        print(f"{prices.shape=}, {labels.shape=}")
+        (tmp_prices, tmp_labels) = self.delete_invalid_data(prices, labels)
+        print(f"{tmp_prices.shape=}, {tmp_labels.shape=}")
+        # valid_data_flag = label[:, LABEL.VALID_INDEX]
+        # print(f"No.2 :{test_prices.shape=}")
+        # labels = np.expand_dims(labels, axis=1)
+        # print(f"get_data_per_mode No.1:{labels.shape=}")
+        # prices = np.concatenate((prices, labels), axis=2)
+        # print(f"get_data_per_mode No.2:{prices.shape=}")
+        # print(f"get_data_per_mode No.2:{prices[0, 0,:]=}")
+
         if type(mode) is str:
             mode = self.convert_str_to_mode(mode)
         if mode == MODEL_MODE.MODE_RISED or mode == MODEL_MODE.MODE_FALLED:
             if remove:
-                prices = prices[~prices["is_zero"]]
+                # prices = prices[~prices["is_zero"]]
+                (prices, labels) = self.delete_invalid_data(prices, labels)
             if mode == MODEL_MODE.MODE_RISED:
-                tmp_label = prices[["is_rised"]]
+                tmp_label = prices[:, LABEL.RISED_INDEX]
             else:
-                tmp_label = prices[["is_falled"]]
+                tmp_label = prices[:, LABEL.FALLED_INDEX]
         elif mode == MODEL_MODE.MODE_VALID:
-            tmp_label = prices[["is_zero"]]
+            tmp_label = prices[:, LABEL.VALID_INDEX]
         elif mode == MODEL_MODE.MODE_VALUE_HIGH:
             if remove:
-                prices = prices[~prices["is_zero"]]
-            tmp_label = prices[["high"]]
+                (prices, labels) = self.delete_invalid_data(prices, labels)
+            tmp_label = prices[:, LABEL.IS_HIGH_POS_INDEX]
         elif mode == MODEL_MODE.MODE_VALUE_LOW:
             if remove:
-                prices = prices[~prices["is_zero"]]
-            tmp_label = prices[["low"]]
+                (prices, labels) = self.delete_invalid_data(prices, labels)
+            tmp_label = prices[:, LABEL.IS_LOW_POS_INDEX]
         return (prices, tmp_label)
 
     def finalize_data(self, prices, tmp_label):
@@ -305,6 +336,7 @@ class JStocksDataset(Dataset):
     def convert_sid_dataset(self, company):
         where = f"where company = '{company}' ORDER BY date ASC  "
         tmp_prices = self.sql.get_table("price", where)
+        # print(f"{tmp_prices.shape=}")
         if tmp_prices.shape[0] < LSTM_STEP_SIZE * 2:
             return None
 
@@ -324,6 +356,7 @@ class JStocksDataset(Dataset):
         adj = prices[prices["adj"] != 1]
         prices = prices.apply(apply_limit, axis=1, adj=adj)
         prices = self.set_invalid_flag(prices, company)
+        # print(f"{prices.shape=}")
 
         gb = prices.groupby("sid")
         # gb["high"].max()
@@ -342,6 +375,7 @@ class JStocksDataset(Dataset):
 
         df["tmp"] = df["close"].shift(1)
         df = df.apply(change_price, axis=1)
+        # print(f"{df.shape=}")
 
         df = df.drop(0)
         df["turnover"] = df.apply(change_turnover, axis=1)
@@ -359,18 +393,20 @@ class JStocksDataset(Dataset):
         )
 
         df = df.dropna()
+        # print(f"{df.shape=}")
         df["volume"] = (df["volume"] - df["volume"].mean()) / df["volume"].std()
         return df
 
     def convert_lstm_dataset(self, df, mode, step):
-        label_index = 0
+        # label_index = 0
         # data_2d = df.to_numpy()
         # print("lstm dataset No.2")
-        for i, col in enumerate(df.columns):
-            if col == mode.value:
-                label_index = i
-        print(f"{label_index=}")
+        # for i, col in enumerate(df.columns):
+        #     if col == mode.value:
+        #         label_index = i
+        # print(f"{label_index=}")
         print(f"{df=}")
+        print(f"{df.shape=}")
 
         # size = data_2d.shape[0]
         # print(f"{size=}")
@@ -382,13 +418,16 @@ class JStocksDataset(Dataset):
         # step = 10
         features = company_np.shape[1]
         size = company_np.shape[0] - step
+        print(f"{company_np.shape=},{size=}, {step=}, {features=}")
         data_3d = np.zeros((size, step, features))
-        label = np.zeros(size)
+        label = np.zeros((size, LABEL_NUM))
 
         for i in range(0, size):
             # tmp_2d =
             data_3d[i] = company_np[i : step + i, :]
-            label[i] = company_np[step + i, label_index]
+            label[i] = company_np[
+                step + i, LABEL_START_INDEX : (LABEL_NUM + LABEL_START_INDEX)
+            ]
         return (data_3d, label)
 
     def load(self, sector33, mode):
@@ -396,26 +435,39 @@ class JStocksDataset(Dataset):
         sector33_list = self.get_sector33(sector33)
         company_list = self.get_companys(sector33_list)
 
-        data_for_lstm = []
-        label_for_lstm = []
-        for company2 in company_list:
-            company = "92040"
+        data_for_lstm = np.zeros((1, LSTM_STEP_SIZE, LSTM_FEATURES_SIZE))
+        label_for_lstm = np.zeros((1, LABEL_NUM))
+        for company in company_list:
+            # company = "92040"
             print(f"{company=}")
             sid_data = self.convert_sid_dataset(company)
-            if sid_data is None:
+            if sid_data is None or sid_data.shape[0] < LSTM_STEP_SIZE:
+                print(
+                    f"sid_data is none or less than STEP_SIZE, {company=},{sid_data.shape=}"
+                )
                 continue
             print("end sid_data")
             (x, y) = self.convert_lstm_dataset(sid_data, mode, LSTM_STEP_SIZE)
-            return 0
-            data_for_lstm.extend(x)
-            label_for_lstm.extend(y)
+            data_for_lstm = np.concatenate((data_for_lstm, x), axis=0)
+            label_for_lstm = np.concatenate((label_for_lstm, y), axis=0)
+            # data_for_lstm.extend(x)
+            # label_for_lstm.extend(y)
         print(f"{data_for_lstm.shape=}")
         print(f"{label_for_lstm.shape=}")
+        data_for_lstm = np.delete(data_for_lstm, 0, 0)
+        label_for_lstm = np.delete(label_for_lstm, 0, 0)
+        # print(f"{data_for_lstm=}")
+        # print(f"{label_for_lstm=}")
+        print(f"{data_for_lstm.shape=}")
+        print(f"{label_for_lstm.shape=}")
+        print(f"{mode=}")
 
-        # self.saved_prices = df
-        # (df, tmp_label) = self.get_data_per_mode(df, mode)
-        # print(f"{df.shape=}")
-        # self.finalize_data(df, tmp_label)
+        self.saved_prices = data_for_lstm
+        self.saved_label = label_for_lstm
+        (df, tmp_label) = self.get_data_per_mode(
+            self.saved_prices, self.saved_label, mode
+        )
+        self.finalize_data(df, tmp_label)
 
     def __len__(self):
         return len(self.data)
