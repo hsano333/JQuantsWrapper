@@ -253,15 +253,15 @@ class JStocksDataset(Dataset):
     def delete_invalid_data(self, prices, labels):
         test_prices = prices
         for i, data in reversed(list(enumerate(labels))):
-            if data[LABEL.VALID_INDEX] > 0.9999:
+            if data[LABEL.VALID_INDEX] >= 0.9999:
                 test_prices = np.delete(test_prices, i, 0)
         valid_data = labels[:, LABEL.VALID_INDEX] < 0.009
         return (test_prices, labels[valid_data])
 
     def get_data_per_mode(self, prices, labels, mode, remove=True):
         print(f"{prices.shape=}, {labels.shape=}")
-        (tmp_prices, tmp_labels) = self.delete_invalid_data(prices, labels)
-        print(f"{tmp_prices.shape=}, {tmp_labels.shape=}")
+        # (tmp_prices, tmp_labels) = self.delete_invalid_data(prices, labels)
+        # print(f"{tmp_prices.shape=}, {tmp_labels.shape=}")
         # valid_data_flag = label[:, LABEL.VALID_INDEX]
         # print(f"No.2 :{test_prices.shape=}")
         # labels = np.expand_dims(labels, axis=1)
@@ -277,36 +277,42 @@ class JStocksDataset(Dataset):
                 # prices = prices[~prices["is_zero"]]
                 (prices, labels) = self.delete_invalid_data(prices, labels)
             if mode == MODEL_MODE.MODE_RISED:
-                tmp_label = prices[:, LABEL.RISED_INDEX]
+                tmp_label = labels[:, LABEL.RISED_INDEX]
+                # test_label = labels[LABEL.RISED_INDEX]
             else:
-                tmp_label = prices[:, LABEL.FALLED_INDEX]
+                tmp_label = labels[:, LABEL.FALLED_INDEX]
         elif mode == MODEL_MODE.MODE_VALID:
-            tmp_label = prices[:, LABEL.VALID_INDEX]
+            tmp_label = labels[:, LABEL.VALID_INDEX]
         elif mode == MODEL_MODE.MODE_VALUE_HIGH:
             if remove:
                 (prices, labels) = self.delete_invalid_data(prices, labels)
-            tmp_label = prices[:, LABEL.IS_HIGH_POS_INDEX]
+            tmp_label = labels[:, LABEL.IS_HIGH_POS_INDEX]
         elif mode == MODEL_MODE.MODE_VALUE_LOW:
             if remove:
                 (prices, labels) = self.delete_invalid_data(prices, labels)
-            tmp_label = prices[:, LABEL.IS_LOW_POS_INDEX]
+            tmp_label = labels[:, LABEL.IS_LOW_POS_INDEX]
+
+        print(f"get_data_per_mode No.2:{prices.shape=}, {tmp_label.shape=}, ")
+
         return (prices, tmp_label)
 
     def finalize_data(self, prices, tmp_label):
-        prices = prices.drop(["sid", "is_rised", "is_zero"], axis=1)
-        prices = prices[:-1]
-        self.tmp_label = tmp_label[1:]
+        print(f"finalize_data No.1:{prices.shape=}, {tmp_label.shape=}")
 
-        self.data = torch.tensor(prices[: -self.TEST_SIZE].values.astype(np.float32))
-        self.label = torch.tensor(
-            self.tmp_label.iloc[: -self.TEST_SIZE].values.astype(np.float32)
-        )
-        self.eval_data = torch.tensor(
-            prices[self.TEST_SIZE :].values.astype(np.float32)
-        )
-        self.eval_label = torch.tensor(
-            self.tmp_label.iloc[self.TEST_SIZE :].values.astype(np.float32)
-        )
+        ## prices = prices.drop(["sid", "is_rised", "is_zero"], axis=1)
+        # prices = prices[:-1]
+        # self.tmp_label = tmp_label[1:]
+
+        self.data = torch.from_numpy(prices[: -self.TEST_SIZE])
+        self.label = torch.from_numpy(tmp_label[: -self.TEST_SIZE])
+
+        self.eval_data = torch.from_numpy(prices[self.TEST_SIZE :])
+        self.eval_label = torch.from_numpy(tmp_label[self.TEST_SIZE :])
+
+        print(f"{self.data.shape=}, {self.label.shape=}")
+        print(f"{self.data[-1]=}, {self.label[-1]=}")
+        print(f"{self.eval_data.shape=}, {self.eval_label.shape=}")
+        print(f"{self.eval_data[-1]=}, {self.eval_label[-1]=}")
 
     def get_sector33(self, code):
         if type(code) is str:
@@ -426,7 +432,7 @@ class JStocksDataset(Dataset):
             # tmp_2d =
             data_3d[i] = company_np[i : step + i, :]
             label[i] = company_np[
-                step + i, LABEL_START_INDEX : (LABEL_NUM + LABEL_START_INDEX)
+                step + i, LABEL_START_INDEX : (LABEL_START_INDEX + LABEL_NUM)
             ]
         return (data_3d, label)
 
