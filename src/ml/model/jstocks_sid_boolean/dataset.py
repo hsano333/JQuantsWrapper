@@ -28,7 +28,7 @@ FALLED_INDEX = 2
 
 
 LABEL_START_INDEX = 8
-LABEL_NUM = 5
+LABEL_NUM = 6
 
 
 class LABEL(IntEnum):
@@ -37,6 +37,7 @@ class LABEL(IntEnum):
     VALID_INDEX = auto()
     IS_HIGH_POS_INDEX = auto()
     IS_LOW_POS_INDEX = auto()
+    TEST_INDEX = auto()
 
 
 class MODEL_MODE(Enum):
@@ -45,6 +46,7 @@ class MODEL_MODE(Enum):
     MODE_VALID = "valid"
     MODE_VALUE_HIGH = "high"
     MODE_VALUE_LOW = "low"
+    MODE_TEST = "test"
 
 
 # MODE = MODEL_MODE.MODE_VALID
@@ -255,7 +257,7 @@ class JStocksDataset(Dataset):
         for i, data in reversed(list(enumerate(labels))):
             if data[LABEL.VALID_INDEX] >= 0.9999:
                 test_prices = np.delete(test_prices, i, 0)
-        valid_data = labels[:, LABEL.VALID_INDEX] < 0.009
+        valid_data = labels[:, LABEL.VALID_INDEX] < 0.9999
         return (test_prices, labels[valid_data])
 
     def get_data_per_mode(self, prices, labels, mode, remove=True):
@@ -291,6 +293,11 @@ class JStocksDataset(Dataset):
             if remove:
                 (prices, labels) = self.delete_invalid_data(prices, labels)
             tmp_label = labels[:, LABEL.IS_LOW_POS_INDEX]
+        elif mode == MODEL_MODE.MODE_TEST:
+            if remove:
+                (prices, labels) = self.delete_invalid_data(prices, labels)
+            # tmp_label = labels[:, LABEL.TEST_INDEX]
+            tmp_label = labels
 
         print(f"get_data_per_mode No.2:{prices.shape=}, {tmp_label.shape=}, ")
 
@@ -299,15 +306,22 @@ class JStocksDataset(Dataset):
     def finalize_data(self, prices, tmp_label):
         print(f"finalize_data No.1:{prices.shape=}, {tmp_label.shape=}")
 
-        ## prices = prices.drop(["sid", "is_rised", "is_zero"], axis=1)
-        # prices = prices[:-1]
-        # self.tmp_label = tmp_label[1:]
+        test_sid = np.amax(tmp_label[:, 5], axis=0).item() - self.TEST_SIZE + 1
 
-        self.data = torch.from_numpy(prices[: -self.TEST_SIZE])
-        self.label = torch.from_numpy(tmp_label[: -self.TEST_SIZE])
+        # -1はdataはlabelに対して過去のデータだから
+        learning_data = prices[:, -1, 0] < test_sid - 1
+        test_data = prices[:, -1, 0] >= test_sid - 1
+        learning_label = tmp_label[:, 5] < test_sid
+        test_label = tmp_label[:, 5] >= test_sid
 
-        self.eval_data = torch.from_numpy(prices[self.TEST_SIZE :])
-        self.eval_label = torch.from_numpy(tmp_label[self.TEST_SIZE :])
+        # self.data = torch.from_numpy(prices[: -self.TEST_SIZE])
+        # self.label = torch.from_numpy(tmp_label[: -self.TEST_SIZE])
+
+        self.data = torch.from_numpy(prices[learning_data])
+        self.label = torch.from_numpy(tmp_label[learning_label])
+
+        self.eval_data = torch.from_numpy(prices[test_data])
+        self.eval_label = torch.from_numpy(tmp_label[test_label])
 
         print(f"{self.data.shape=}, {self.label.shape=}")
         print(f"{self.data[-1]=}, {self.label[-1]=}")
@@ -434,6 +448,7 @@ class JStocksDataset(Dataset):
             label[i] = company_np[
                 step + i, LABEL_START_INDEX : (LABEL_START_INDEX + LABEL_NUM)
             ]
+            label[i][LABEL_NUM - 1] = company_np[step + i, 0]
         return (data_3d, label)
 
     def load(self, sector33, mode):
@@ -502,4 +517,6 @@ class JStocksDataset(Dataset):
             return MODEL_MODE.MODE_VALUE_HIGH
         elif mode == MODEL_MODE.MODE_VALUE_LOW.value:
             return MODEL_MODE.MODE_VALUE_LOW
+        elif mode == MODEL_MODE.MODE_TEST.value:
+            return MODEL_MODE.MODE_TEST
         return None

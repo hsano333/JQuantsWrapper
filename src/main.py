@@ -3,7 +3,7 @@ from routine import Routine
 
 routine = Routine()
 code = "5150"
-mode = "rised"
+mode = "test"
 
 
 # 2024/12/1以降のデータをすべて削除(状態がおかしくなったら実行)
