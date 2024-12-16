@@ -53,8 +53,10 @@ class MODEL_MODE(Enum):
 
 
 def change_turnover(val):
-    high = val["high"] * 1.0 if val["is_high_positive"] is True else -1.0 * val["high"]
-    low = val["low"] * 1.0 if val["is_low_positive"] is True else -1.0 * val["low"]
+    # high = val["high"] * 1.0 if val["is_high_positive"] is True else -1.0 * val["high"]
+    # low = val["low"] * 1.0 if val["is_low_positive"] is True else -1.0 * val["low"]
+    high = val["high"]
+    low = val["low"]
     volume = val["volume"]
     turnover = val["turnover"]
     if turnover == 0 or volume == 0 or high == 0 or low == 0:
@@ -65,6 +67,18 @@ def change_turnover(val):
     max_turnover = high_turnover - low_turnover
     base_turnover = turnover - low_turnover
     calc_turnover = base_turnover / max_turnover
+    calc_turnover = base_turnover / max_turnover
+    print(f"{high=}")
+    print(f"{low=}")
+    print(f"{volume=}")
+    print(f"{turnover=}")
+    print(f"{high_turnover=}")
+    print(f"{low_turnover=}")
+    print(f"{max_turnover=}")
+    print(f"{base_turnover=}")
+    print(f"{calc_turnover=}")
+    print(f"{val['valid_cnt']=}")
+    print(f"{val['invalid']=}")
     return calc_turnover
 
 
@@ -122,6 +136,8 @@ def change_price(val):
     val["is_zero"] = (val["is_rised"] is False) & (val["is_falled"] is False)
     # val["is_zero"] = val[(val["is_rised"] is False) & (val["is_falled"] is False)]
 
+    # val["high_backup"] = val["high"]
+    # val["low_backup"] = val["low"]
     val["high"] = val["high"] - tmp
     val["low"] = val["low"] - tmp
     val["open"] = val["open"] - tmp
@@ -322,7 +338,7 @@ class JStocksDataset(Dataset):
 
     def finalize_data(self, prices, tmp_label, mode):
         print(f"finalize_data No.1:{prices.shape=}, {tmp_label.shape=}")
-        print(f"finalize_data No.2:{prices[-10:,-1,0]=}, {tmp_label[-10:]=}")
+        print(f"finalize_data No.2:{prices[-10:,-1,0:9]=}, {tmp_label[-10:]=}")
 
         (prices, tmp_label, label_index) = self.get_data_per_mode(
             prices, tmp_label, mode
@@ -348,6 +364,7 @@ class JStocksDataset(Dataset):
         test_data = prices[test_data_bool]
         test_label = tmp_label[test_label_bool, label_index]
 
+        print(f"{self.delete_index=}")
         learning_data = np.delete(learning_data, self.delete_index, axis=2)
         test_data = np.delete(test_data, self.delete_index, axis=2)
 
@@ -365,6 +382,8 @@ class JStocksDataset(Dataset):
 
         print(f"{self.data.shape=}, {self.label.shape=}")
         print(f"{self.data[-1]=}, {self.label[-1]=}")
+        print(f"{self.data[0][0][0:8]=},")
+        print(f"{self.data[-1][-1][0:8]=},")
         print(f"{self.eval_data.shape=}, {self.eval_label.shape=}")
         print(f"{self.eval_data[-1]=}, {self.eval_label[-1]=}")
 
@@ -429,16 +448,17 @@ class JStocksDataset(Dataset):
         df["turnover"] = gb["turnover"].sum() / gb["valid_cnt"].last()
         df["limit"] = gb["limit"].last() * 2
         df["valid_cnt"] = gb["valid_cnt"].last()
-        df["invalid"] = gb["invalid"].sum() > 0
+        # df["invalid"] = gb["invalid"].sum() > 0 | gb["valid_cnt"].last() == 0
+        df["invalid"] = (gb["invalid"].sum() > 0) | (gb["valid_cnt"].last() < 1)
         df.reset_index(inplace=True)
         df["invalid"] = df["invalid"].shift(-1).fillna(False)
 
+        df["turnover"] = df.apply(change_turnover, axis=1)
         df["tmp"] = df["close"].shift(1)
         df = df.apply(change_price, axis=1)
         # print(f"{df.shape=}")
 
         df = df.drop(0)
-        df["turnover"] = df.apply(change_turnover, axis=1)
         # df = add_rolling(df, 5)
         # df = add_rolling(df, 15)
         # df = add_rolling(df, 50)
@@ -454,11 +474,17 @@ class JStocksDataset(Dataset):
         # この段階でまだ消してはダメなものはこちらにindexを保持する
         sid_index = df.columns.get_loc("sid")
         invalid_index = df.columns.get_loc("invalid")
+        print(f"drop No.1:{df.iloc[0:3, 0:8]=}")
+        print(f"drop No.2:{df.iloc[0:3, 8:]=}")
         self.delete_index = [sid_index, invalid_index]
+        print(f"drop No.3:{self.delete_index=}")
 
         df = df.dropna()
         # print(f"{df.shape=}")
         df["volume"] = (df["volume"] - df["volume"].mean()) / df["volume"].std()
+        df["volume"] = df["volume"] / df["volume"].max()
+        print(f'{df["volume"]=}')
+        print(f'{df["turnover"]=}')
         return df
 
     def convert_lstm_dataset(self, df, mode, step):

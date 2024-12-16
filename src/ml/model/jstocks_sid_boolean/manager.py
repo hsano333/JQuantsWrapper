@@ -120,6 +120,8 @@ class BaseManager:
         # print(f"{prediction.shape=}")
         # print(f"{label.shape=}")
         # print(f"{label[:,0].shape=}")
+        # print(f"{prediction=}")
+        # print(f"{label=}")
         loss = self.criterion(prediction, label)
         # print(f"{loss=}")
         # loss1 = self.criterion(inputs=prediction, targets=label[:, 0], alpha=0.1)
