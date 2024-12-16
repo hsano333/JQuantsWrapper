@@ -42,6 +42,7 @@ class BaseManager:
         self.model = JStocksModel()
         self.mode = self.dataset.get_mode()
         mode = self.mode
+        print(f"manager:{mode=}")
 
         # 損失関数
         # weights = torch.tensor([0.3, 0.7])

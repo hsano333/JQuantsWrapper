@@ -5,7 +5,7 @@ import importlib
 from ml.model.jstocks_sid_boolean.manager import BaseManager
 
 # from ml.model.jstocks_cross_entropy.manager import BaseManager
-import ml.model.jstocks_boolean.manager
+# import ml.model.jstocks_boolean.manager
 
 # from .model.iris.manager import BaseManager
 

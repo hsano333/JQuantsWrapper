@@ -3,7 +3,7 @@ from routine import Routine
 
 routine = Routine()
 code = "5150"
-mode = "test"
+mode = "rised"
 
 
 # 2024/12/1以降のデータをすべて削除(状態がおかしくなったら実行)
@@ -13,10 +13,10 @@ mode = "test"
 # routine.day_routine()
 
 # 学習する
-# routine.learning(code, mode, continue_epoch=False)
+routine.learning(code, mode, continue_epoch=False)
 
 # 予想する
 # routine.forecast_all()
 
 # テスト
-routine.reload_my_torch(code, mode)
+# routine.reload_my_torch(code, mode)

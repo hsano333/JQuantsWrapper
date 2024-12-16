@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from enum import IntEnum
 
-D_in = 11
+D_in = 13
 H = 100
 D_out = 1
 DROPOUT_RATIO = 0.1
@@ -21,27 +21,21 @@ class Diff(IntEnum):
 class JStocksModel(nn.Module):
     def __init__(self) -> None:
         super(JStocksModel, self).__init__()
-        # super()
 
-        self.sequential = torch.nn.Sequential(
-            torch.nn.Linear(D_in, 16),
-            torch.nn.ReLU(),
-            torch.nn.Dropout(DROPOUT_RATIO),
-            torch.nn.Linear(16, 8),
-            torch.nn.ReLU(),
-            torch.nn.Linear(8, 4),
-            torch.nn.ReLU(),
-            torch.nn.Linear(4, D_out),
-            torch.nn.Dropout(DROPOUT_RATIO),
-            torch.nn.Sigmoid(),
-        )
+        self.lstm = torch.nn.LSTM(D_in, H, num_layers=2, bias=True, dropout=0.2)
+        self.linear1 = torch.nn.Linear(H, int(H / 4))
+        self.linear2 = torch.nn.Linear(int(H / 4), 8)
+        self.linear3 = torch.nn.Linear(8, 3)
+        self.linear4 = torch.nn.Linear(3, D_out)
+        self.relu = torch.nn.ReLU()
+        self.sigmoid = torch.nn.Sigmoid()
 
     # @torch.compile
     def forward(self, x):
-        # print(f"{x.shape=}, {x=}")
-        x = self.sequential(x)
-        # x = F.relu(self.linear1(x))
-        # x = F.relu(self.linear2(x))
-        # x = F.relu(self.linear3(x))
-        # x = self.linear4(x)
+        output, (hn, cn) = self.lstm(x)
+        x = self.relu(self.linear1(output[:, -1, :]))
+        x = self.relu(self.linear2(x))
+        x = self.relu(self.linear3(x))
+        x = self.relu(self.linear4(x))
+        # x = self.sigmoid(x)
         return x

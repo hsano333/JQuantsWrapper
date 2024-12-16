@@ -189,7 +189,7 @@ def change_rolling(val):
 
 
 class JStocksDataset(Dataset):
-    TEST_SIZE = 15
+    TEST_SIZE = 20
 
     # code of sector33
     def __init__(self, code="3700", mode=None):
@@ -242,26 +242,36 @@ class JStocksDataset(Dataset):
         return df
 
     def change_mode(self, mode):
-        (prices, tmp_label) = self.get_data_per_mode(self.saved_prices, mode)
-        self.finalize_data(prices, tmp_label)
+        # (prices, tmp_label) = self.get_data_per_mode(self.saved_prices, mode)
+        # self.finalize_data(prices, tmp_label)
+        self.finalize_data(self.saved_prices, self.saved_label, mode)
         self.mode = mode
 
-    def get_from_date(self, date_from):
-        tmp = self.saved_prices[self.saved_prices["date"] >= date_from]
-        (prices, tmp_label) = self.get_data_per_mode(tmp, self.mode, False)
-        prices = prices.drop(["date", "is_rised", "is_zero"], axis=1)
-        return torch.tensor(prices.values.astype(np.float32))
+    # sid_fromは予想に使う実データの最新データ。
+    # つまり、7/2を予測したいなら、7/1を指定する
+    def get_from_date(self, sid_from):
+        prices = self.saved_prices
+        forecasted_data = prices[:, -1, 0] >= sid_from
+        forecasted_data = np.delete(forecasted_data, self.delete_index, axis=2)
+        return torch.from_numpy(forecasted_data.astype(np.float32))
 
     def delete_invalid_data(self, prices, labels):
         test_prices = prices
+        cnt = 0
         for i, data in reversed(list(enumerate(labels))):
             if data[LABEL.VALID_INDEX] >= 0.9999:
                 test_prices = np.delete(test_prices, i, 0)
+                cnt = cnt + 1
         valid_data = labels[:, LABEL.VALID_INDEX] < 0.9999
+        print(f"delete count:{cnt=}")
+        print(f"delete count:{valid_data.sum()=}")
+        print(f"delete count:{test_prices.shape=}")
+        print(f"delete count:{labels[valid_data].shape=}")
         return (test_prices, labels[valid_data])
 
     def get_data_per_mode(self, prices, labels, mode, remove=True):
         print(f"{prices.shape=}, {labels.shape=}")
+        label_index = 0
         # (tmp_prices, tmp_labels) = self.delete_invalid_data(prices, labels)
         # print(f"{tmp_prices.shape=}, {tmp_labels.shape=}")
         # valid_data_flag = label[:, LABEL.VALID_INDEX]
@@ -279,49 +289,79 @@ class JStocksDataset(Dataset):
                 # prices = prices[~prices["is_zero"]]
                 (prices, labels) = self.delete_invalid_data(prices, labels)
             if mode == MODEL_MODE.MODE_RISED:
-                tmp_label = labels[:, LABEL.RISED_INDEX]
+                # tmp_label = labels[:, LABEL.RISED_INDEX]
+                label_index = LABEL.RISED_INDEX
                 # test_label = labels[LABEL.RISED_INDEX]
             else:
-                tmp_label = labels[:, LABEL.FALLED_INDEX]
+                # tmp_label = labels[:, LABEL.FALLED_INDEX]
+                label_index = LABEL.FALLED_INDEX
         elif mode == MODEL_MODE.MODE_VALID:
-            tmp_label = labels[:, LABEL.VALID_INDEX]
+            # tmp_label = labels[:, LABEL.VALID_INDEX]
+            label_index = LABEL.VALID_INDEX
         elif mode == MODEL_MODE.MODE_VALUE_HIGH:
             if remove:
                 (prices, labels) = self.delete_invalid_data(prices, labels)
-            tmp_label = labels[:, LABEL.IS_HIGH_POS_INDEX]
+            # tmp_label = labels[:, LABEL.IS_HIGH_POS_INDEX]
+            label_index = LABEL.IS_HIGH_POS_INDEX
         elif mode == MODEL_MODE.MODE_VALUE_LOW:
             if remove:
                 (prices, labels) = self.delete_invalid_data(prices, labels)
-            tmp_label = labels[:, LABEL.IS_LOW_POS_INDEX]
+            # tmp_label = labels[:, LABEL.IS_LOW_POS_INDEX]
+            label_index = LABEL.IS_LOW_POS_INDEX
         elif mode == MODEL_MODE.MODE_TEST:
             if remove:
                 (prices, labels) = self.delete_invalid_data(prices, labels)
+            label_index = LABEL.TEST_INDEX
             # tmp_label = labels[:, LABEL.TEST_INDEX]
-            tmp_label = labels
+            # tmp_label = labels
 
-        print(f"get_data_per_mode No.2:{prices.shape=}, {tmp_label.shape=}, ")
+        # print(f"get_data_per_mode No.2:{prices.shape=}, {tmp_label.shape=}, ")
 
-        return (prices, tmp_label)
+        print(f"{prices.shape=}, {labels.shape=}")
+        return (prices, labels, label_index)
 
-    def finalize_data(self, prices, tmp_label):
+    def finalize_data(self, prices, tmp_label, mode):
         print(f"finalize_data No.1:{prices.shape=}, {tmp_label.shape=}")
+        print(f"finalize_data No.2:{prices[-10:,-1,0]=}, {tmp_label[-10:]=}")
 
+        (prices, tmp_label, label_index) = self.get_data_per_mode(
+            prices, tmp_label, mode
+        )
         test_sid = np.amax(tmp_label[:, 5], axis=0).item() - self.TEST_SIZE + 1
+        # print(f"finalize_data No.2:{df.shape=}, {tmp_label.shape=}")
+        # print(f"finalize_data No.2:{prices[-10:,-1,0]=}, {tmp_label[-10:]=}")
 
         # -1はdataはlabelに対して過去のデータだから
-        learning_data = prices[:, -1, 0] < test_sid - 1
-        test_data = prices[:, -1, 0] >= test_sid - 1
-        learning_label = tmp_label[:, 5] < test_sid
-        test_label = tmp_label[:, 5] >= test_sid
+        learning_data_bool = prices[:, -1, 0] < test_sid - 1
+        test_data_bool = prices[:, -1, 0] >= test_sid - 1
+        learning_label_bool = tmp_label[:, 5] < test_sid
+        test_label_bool = tmp_label[:, 5] >= test_sid
+
+        print(f"{test_sid=}")
+        print(f"{learning_data_bool.sum()=}")
+        print(f"{test_data_bool.sum()=}")
+        print(f"{learning_label_bool.sum()=}")
+        print(f"{test_label_bool.sum()=}")
+
+        learning_data = prices[learning_data_bool]
+        learning_label = tmp_label[learning_label_bool, label_index]
+        test_data = prices[test_data_bool]
+        test_label = tmp_label[test_label_bool, label_index]
+
+        learning_data = np.delete(learning_data, self.delete_index, axis=2)
+        test_data = np.delete(test_data, self.delete_index, axis=2)
 
         # self.data = torch.from_numpy(prices[: -self.TEST_SIZE])
         # self.label = torch.from_numpy(tmp_label[: -self.TEST_SIZE])
 
-        self.data = torch.from_numpy(prices[learning_data])
-        self.label = torch.from_numpy(tmp_label[learning_label])
+        learning_label = learning_label.reshape(learning_label.shape[0], 1)
+        test_label = test_label.reshape(test_label.shape[0], 1)
 
-        self.eval_data = torch.from_numpy(prices[test_data])
-        self.eval_label = torch.from_numpy(tmp_label[test_label])
+        self.data = torch.from_numpy(learning_data.astype(np.float32))
+        self.label = torch.from_numpy(learning_label.astype(np.float32))
+
+        self.eval_data = torch.from_numpy(test_data.astype(np.float32))
+        self.eval_label = torch.from_numpy(test_label.astype(np.float32))
 
         print(f"{self.data.shape=}, {self.label.shape=}")
         print(f"{self.data[-1]=}, {self.label[-1]=}")
@@ -411,6 +451,10 @@ class JStocksDataset(Dataset):
             # ["company", "upper_l", "low_l", "adj", "limit", "tmp", "id"],
             axis=1,
         )
+        # この段階でまだ消してはダメなものはこちらにindexを保持する
+        sid_index = df.columns.get_loc("sid")
+        invalid_index = df.columns.get_loc("invalid")
+        self.delete_index = [sid_index, invalid_index]
 
         df = df.dropna()
         # print(f"{df.shape=}")
@@ -485,10 +529,9 @@ class JStocksDataset(Dataset):
 
         self.saved_prices = data_for_lstm
         self.saved_label = label_for_lstm
-        (df, tmp_label) = self.get_data_per_mode(
-            self.saved_prices, self.saved_label, mode
-        )
-        self.finalize_data(df, tmp_label)
+
+        self.finalize_data(self.saved_prices, self.saved_label, mode)
+        # self.finalize_data(df, tmp_label)
 
     def __len__(self):
         return len(self.data)
