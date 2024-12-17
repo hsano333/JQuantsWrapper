@@ -32,16 +32,29 @@ class JStocksModel(nn.Module):
 
     # @torch.compile
     def forward(self, x):
-        print(f"{x.shape=}, {x[0][0][0:8]=}, {x[0][0][8:]=}")
-        print(f"{x.shape=}, {x[-1][-1][0:8]=}, {x[-1][-1][8:]=}")
-        output, (hn, cn) = self.lstm(x)
+        # print(f"input No.1:{x.shape=}, {x[-1][-1][0:8]=}, {x[-1][-1][8:]=}")
+        lstm_out, (hn, cn) = self.lstm(x)
+        # print(f"input No.2:{lstm_out.shape=}, {lstm_out[-1][0]=} ")
+
+        # print(f"input No.3:{hn.shape=} ")
+        # print(f"input No.3:{hn[-1]=} ")
+
+        lstm_out = lstm_out[:, -1, :]
+        # print(f"input No.4:{lstm_out.shape=} ")
+        lstm_flat = lstm_out.reshape(
+            lstm_out.size(0),
+            # lstm_out.size(1),
+            -1,
+            # -1,
+        )
         # print(f"{output.shape=}, {output=}")
         # print(f"{output.shape=}, {output[0]=}, {output[-1]=}")
-        x = self.relu(self.linear1(output[:, -1, :]))
+        x = self.relu(self.linear1(lstm_out))
         # print(f"{x.shape=}, {x[0]=}")
         x = self.relu(self.linear2(x))
         x = self.relu(self.linear3(x))
         x = self.relu(self.linear4(x))
         # print(f"{x.shape=}, {x[0]=}")
-        # x = self.sigmoid(x)
+        x = self.sigmoid(x)
+        # print(f"outputNo.7:{x.shape=}, {x=}")
         return x

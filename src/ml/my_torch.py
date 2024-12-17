@@ -58,10 +58,10 @@ class MyTorch:
         code = self.dataset.get_code()
         self.load(code, mode, continue_epoch=False)
 
-    def __init__(self, code, mode, continue_epoch=False):
+    def __init__(self, code, mode, continue_epoch=False, load_dataset=False):
         print(f"MyTorch :{mode=}")
         importlib.reload(MyDataset)
-        self.manager = BaseManager(code, mode)
+        self.manager = BaseManager(code, mode, load_dataset)
         self.dataset = self.manager.get_dataset()
         self.load(code, mode, continue_epoch)
 

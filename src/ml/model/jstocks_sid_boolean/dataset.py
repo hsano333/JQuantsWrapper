@@ -11,6 +11,7 @@ from jq.sql import get_limit
 import torch
 import numpy as np
 import pandas as pd
+import os
 
 
 from db.mydb import DB
@@ -216,9 +217,21 @@ class JStocksDataset(Dataset):
         print("dateset No.1")
 
         self.mode = self.convert_str_to_mode(mode)
+
         print("dateset No.2")
         self.code = code
-        self.load(code, self.mode)
+        self.dataset_name = f"dataset_{code}"
+        self.delete_index = []
+
+    def load_file(self, code, mode, path):
+        print(f"{path=}")
+        loaded = np.load(path)
+        self.saved_prices = loaded["data"]
+        self.saved_label = loaded["label"]
+        self.delete_index = loaded["delete"].tolist()
+        print(f"{self.saved_prices.shape=}")
+        print(f"{self.saved_label.shape=}")
+        self.finalize_data(self.saved_prices, self.saved_label, mode)
 
     def get_mode(self):
         return self.mode
@@ -521,8 +534,7 @@ class JStocksDataset(Dataset):
             label[i][LABEL_NUM - 1] = company_np[step + i, 0]
         return (data_3d, label)
 
-    def load(self, sector33, mode):
-        self.dataset_name = f"dataset_{sector33}"
+    def load(self, sector33, mode, save_path):
         sector33_list = self.get_sector33(sector33)
         company_list = self.get_companys(sector33_list)
 
@@ -555,6 +567,14 @@ class JStocksDataset(Dataset):
 
         self.saved_prices = data_for_lstm
         self.saved_label = label_for_lstm
+        # path = "ml/model/jstocks_sid_boolean/dataset_*/*/" + SAVED_MODEL_NAME
+        print(f"saved numpy dataset:{save_path=}")
+        np.savez_compressed(
+            save_path,
+            data=self.saved_prices,
+            label=self.saved_label,
+            delete=np.array(self.delete_index),
+        )
 
         self.finalize_data(self.saved_prices, self.saved_label, mode)
         # self.finalize_data(df, tmp_label)

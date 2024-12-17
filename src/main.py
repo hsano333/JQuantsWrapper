@@ -13,7 +13,7 @@ mode = "rised"
 # routine.day_routine()
 
 # 学習する
-routine.learning(code, mode, continue_epoch=False)
+routine.learning(code, mode, continue_epoch=False, load_dataset=True)
 
 # 予想する
 # routine.forecast_all()

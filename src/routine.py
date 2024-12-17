@@ -322,9 +322,11 @@ class Routine:
         self.my_torch = MyTorch(code, mode, continue_epoch=1)
         return self.my_torch
 
-    def learning(self, code, mode, continue_epoch=False, epoch=0):
+    def learning(self, code, mode, continue_epoch=False, epoch=0, load_dataset=False):
         print(f"learning:{mode=}")
-        my_torch = MyTorch(code, mode, continue_epoch=continue_epoch)
+        my_torch = MyTorch(
+            code, mode, continue_epoch=continue_epoch, load_dataset=load_dataset
+        )
         if epoch == 0:
             my_torch.main()
         else:

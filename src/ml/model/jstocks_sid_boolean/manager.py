@@ -26,6 +26,7 @@ METRICS_SIZE = 3
 # METRICS_LOSS1_NDX = 4
 # METRICS_LOSS2_NDX = 5
 
+SAVED_LEARNING_DATA = "learning_dataset.npz"
 SAVED_MODEL_NAME = "learned_model.pth"
 SAVED_TMP_MODEL_NAME = "tmp_learned_model.pth"
 
@@ -37,10 +38,26 @@ class Diff(IntEnum):
 
 
 class BaseManager:
-    def __init__(self, code, mode):
+    def __init__(self, code, mode, load_dataset=False):
+        dataset_path = None
+        # if load_dataset:
+        #     path = os.path.join(os.path.dirname(__file__), dataset_{sector33}, self.mode.value)
+        #     dataset_path = os.path.join(self.get_path(), saved_tmp_filename)
+        #     pass
+
         self.dataset = JStocksDataset(code, mode)
-        self.model = JStocksModel()
         self.mode = self.dataset.get_mode()
+
+        load_dataset_path = os.path.join(self.get_path(), SAVED_LEARNING_DATA)
+        print(f"{load_dataset_path=}")
+        if load_dataset and os.path.isfile(load_dataset_path):
+            print("load saved data:")
+            self.dataset.load_file(code, self.mode, load_dataset_path)
+        else:
+            print("load:")
+            self.dataset.load(code, self.mode, load_dataset_path)
+
+        self.model = JStocksModel()
         mode = self.mode
         print(f"manager:{mode=}")
 
@@ -120,10 +137,10 @@ class BaseManager:
         # print(f"{prediction.shape=}")
         # print(f"{label.shape=}")
         # print(f"{label[:,0].shape=}")
-        # print(f"{prediction=}")
-        # print(f"{label=}")
+        print(f"{prediction=}")
+        print(f"{label=}")
         loss = self.criterion(prediction, label)
-        # print(f"{loss=}")
+        print(f"{loss=}")
         # loss1 = self.criterion(inputs=prediction, targets=label[:, 0], alpha=0.1)
         # loss2 = self.criterion(inputs=prediction, targets=label[:, 1], alpha=0.1)
         # print(f"{loss.shape=}")
@@ -145,17 +162,20 @@ class BaseManager:
             metrics[METRICS_PRED1_NDX, start_ndx:end_ndx] = tmp_prediction[:, 0]
             metrics[METRICS_LOSS1_NDX, start_ndx:end_ndx] = loss.detach()
             # ratio1 = len(tmp_prediction[:, 1] < 0.1) / tmp_prediction.shape[0]
+            # print(
+            #     f"{tmp_prediction.shape=}, {tmp_prediction[tmp_prediction[:, 1] < 0.1]=}, {loss=}, {torch.sum(loss)=}, {ratio1=}"
+            # )
             # ratio2 = len(tmp_prediction[:, 1] < 0.1) / tmp_prediction.shape[0]
-            # offset = 1
+            offset = 1
             # if ratio1 >= 0.9 or ratio1 <= 0.1:
-            # offset = offset * 2
+            #     offset = offset * 2
             # if ratio2 >= 0.9 or ratio2 <= 0.1:
             # offset = offset * 3
             # print(f"{ratio1=}, {tmp_prediction.shape=}")
             # metrics[METRICS_LOSS1_NDX, start_ndx:end_ndx] = loss[:, 0].detach()
             # metrics[METRICS_LOSS2_NDX, start_ndx:end_ndx] = loss[:, 1].detach()
 
-        return loss
+        return loss * offset
         # return torch.sum(loss) * offset / 2
 
     def evaluate(self, metrics_base):
