@@ -29,8 +29,8 @@ import ml.model.jstocks_boolean.dataset as MyDataset
 import ml.model.jstocks_boolean.model as MyModel
 import ml.model.jstocks_boolean.manager as MyManager
 
-BATCH_SIZE = 50
-EPOCH_SIZE = 501
+BATCH_SIZE = 70
+EPOCH_SIZE = 3001
 NUM_WORKERS = 4
 
 torch._dynamo.config.suppress_errors = True

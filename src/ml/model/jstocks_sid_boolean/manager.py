@@ -137,10 +137,10 @@ class BaseManager:
         # print(f"{prediction.shape=}")
         # print(f"{label.shape=}")
         # print(f"{label[:,0].shape=}")
-        print(f"{prediction=}")
-        print(f"{label=}")
+        # print(f"{prediction=}")
+        # print(f"{label=}")
         loss = self.criterion(prediction, label)
-        print(f"{loss=}")
+        # print(f"{loss=}")
         # loss1 = self.criterion(inputs=prediction, targets=label[:, 0], alpha=0.1)
         # loss2 = self.criterion(inputs=prediction, targets=label[:, 1], alpha=0.1)
         # print(f"{loss.shape=}")
@@ -161,12 +161,23 @@ class BaseManager:
             metrics[METRICS_LABEL1_NDX, start_ndx:end_ndx] = label[:, 0].detach()
             metrics[METRICS_PRED1_NDX, start_ndx:end_ndx] = tmp_prediction[:, 0]
             metrics[METRICS_LOSS1_NDX, start_ndx:end_ndx] = loss.detach()
-            # ratio1 = len(tmp_prediction[:, 1] < 0.1) / tmp_prediction.shape[0]
+
+            ratio1 = (tmp_prediction[:, 0] < 0.5).sum() / tmp_prediction.shape[0]
+            ratio2 = (tmp_prediction[:, 0] >= 0.5).sum() / tmp_prediction.shape[0]
+            offset = 1
+            if ratio1 < 0.001 or ratio2 < 0.001:
+                offset = 3
+            elif ratio1 < 0.1 or ratio2 < 0.1:
+                offset = 2
+            elif ratio1 < 0.2 or ratio2 < 0.2:
+                offset = 1.5
+            elif ratio1 < 0.35 or ratio2 < 0.35:
+                offset = 1.2
+            print(f"{ratio1=}, {ratio2=}, {offset=}")
             # print(
             #     f"{tmp_prediction.shape=}, {tmp_prediction[tmp_prediction[:, 1] < 0.1]=}, {loss=}, {torch.sum(loss)=}, {ratio1=}"
             # )
             # ratio2 = len(tmp_prediction[:, 1] < 0.1) / tmp_prediction.shape[0]
-            offset = 1
             # if ratio1 >= 0.9 or ratio1 <= 0.1:
             #     offset = offset * 2
             # if ratio2 >= 0.9 or ratio2 <= 0.1:
