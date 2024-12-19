@@ -61,14 +61,17 @@ def change_turnover(val):
     volume = val["volume"]
     turnover = val["turnover"]
     if turnover == 0 or volume == 0 or high == 0 or low == 0:
-        return turnover
+        return 0
 
     high_turnover = high * volume
     low_turnover = low * volume
     max_turnover = high_turnover - low_turnover
     base_turnover = turnover - low_turnover
-    calc_turnover = base_turnover / max_turnover
-    calc_turnover = base_turnover / max_turnover
+    if max_turnover > 0:
+        calc_turnover = base_turnover / max_turnover
+    else:
+        calc_turnover = 0
+    # calc_turnover = base_turnover / max_turnover
     print(f"{high=}")
     print(f"{low=}")
     print(f"{volume=}")
@@ -416,12 +419,16 @@ class JStocksDataset(Dataset):
                     r_list.append(sec33[0])
             return r_list
 
-    def get_companys(self, sector33_list):
+    def get_companys_between_scale(self, sector33_list, min_scale, max_scale):
         all_companys = self.sql.get_all_company()
 
         company_list = []
         for sec33 in sector33_list:
-            tmp_companys = all_companys[all_companys["sector33"] == sec33]
+            tmp_companys = all_companys[
+                (all_companys["sector33"] == sec33)
+                & (all_companys["scale"] >= min_scale)
+                & (all_companys["scale"] <= max_scale)
+            ]
             company_list.extend(tmp_companys["code"].to_list())
         return company_list
 
@@ -536,7 +543,7 @@ class JStocksDataset(Dataset):
 
     def load(self, sector33, mode, save_path):
         sector33_list = self.get_sector33(sector33)
-        company_list = self.get_companys(sector33_list)
+        company_list = self.get_companys_between_scale(sector33_list, 62, 65)
 
         data_for_lstm = np.zeros((1, LSTM_STEP_SIZE, LSTM_FEATURES_SIZE))
         label_for_lstm = np.zeros((1, LABEL_NUM))
@@ -545,9 +552,7 @@ class JStocksDataset(Dataset):
             print(f"{company=}")
             sid_data = self.convert_sid_dataset(company)
             if sid_data is None or sid_data.shape[0] < LSTM_STEP_SIZE:
-                print(
-                    f"sid_data is none or less than STEP_SIZE, {company=},{sid_data.shape=}"
-                )
+                print(f"sid_data is none or less than STEP_SIZE, {company=}")
                 continue
             print("end sid_data")
             (x, y) = self.convert_lstm_dataset(sid_data, mode, LSTM_STEP_SIZE)

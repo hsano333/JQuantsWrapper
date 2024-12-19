@@ -48,6 +48,10 @@ class BaseManager:
         self.dataset = JStocksDataset(code, mode)
         self.mode = self.dataset.get_mode()
 
+        directory = self.get_path()
+        if os.path.isdir(directory) is False:
+            os.makedirs(directory)
+
         load_dataset_path = os.path.join(self.get_path(), SAVED_LEARNING_DATA)
         print(f"{load_dataset_path=}")
         if load_dataset and os.path.isfile(load_dataset_path):
